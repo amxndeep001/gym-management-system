@@ -18,7 +18,7 @@ python manage.py seed_gym
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000 and log in with **admin / admin123**.
+Open http://127.0.0.1:8000 and log in with **admin / admin123**. You land on the Home page.
 
 ### Sample data: `seed_gym`
 
@@ -31,7 +31,7 @@ The command:
 
 - creates the `admin / admin123` login if it doesn't exist.
 - loads the exact Lab 2b sample rows: branches 1–5, staff 101–113 and their subtypes, equipment 201–205, plans 301–305, members 401–410 and their tiers, payments 501–510 and their subtypes, lockers, classes, schedules, attendance, feedback, workout and diet plans, and maintenance.
-- adds generated demo data with a fixed random seed, so every run produces the same data. That's 30 more members joining over the last 6 months, a payment in each mode every month, four weeks of attendance within class capacity, more feedback, and a few `Other` equipment items.
+- adds generated demo data with a fixed random seed, so every run produces the same data. That's 30 more members joining over the last 6 months, a payment in each mode every month, four weeks of attendance within class capacity, more feedback, and a few Accessories (`Other` category) equipment items.
 
 ### Tests
 
@@ -39,15 +39,51 @@ The command:
 python manage.py test gym
 ```
 
-The tests cover the CHECK constraints, PROTECT deletes, overlapping member tiers, the subtype discriminator rule, and the seed command.
+The tests cover the CHECK constraints, PROTECT deletes, overlapping member tiers, the subtype discriminator rule, the Equipment subtype form, the list filters, navigation (Home redirect, section pages, hidden subtype pages), the Gym Progress helper, and the seed command.
 
-## Pages
+## Usage
+
+### Navigation
+
+A sticky top navbar runs across every page. On small screens it collapses into a hamburger menu, and the current section is underlined in orange.
+
+| Navbar link | URL | What it opens |
+|-------------|-----|---------------|
+| Brand / **Home** | `/home/` | The landing page after login (`/` redirects here). It has a welcome banner with **Add Member** and **Record Payment**, four KPI cards with "vs last month" trends, the Gym Progress chart, a quick access tile per section, today's classes, and memberships expiring in the next 15 days. |
+| **Analytics** | `/analytics/` | The detailed view: Gym Progress chart, KPIs, revenue by payment mode, members per plan, and member tiers |
+| **Branch & Staff** | `/section/branch_staff/` | Cards for Branches and Staff, then *Staff Specializations (Disjoint, Total)*: Trainers, Receptionists, Managers, Maintenance Staff |
+| **Equipment** | `/section/equipment/` | Count cards (Total, Cardio, Strength, Accessories, maintenance cost this month), then Equipment and Equipment Maintenance |
+| **Membership & Members** | `/section/membership/` | Membership Plans and Members |
+| **Payments** | `/section/payments/` | Payments |
+| **Classes & Attendance** | `/section/classes/` | Gym Classes, Class Schedules, Attendance |
+| **Others** | `/section/others/` | Lockers, Feedback, Workout Plans, Diet Plans |
+
+The navbar is built from `NAV_SECTIONS` in `gym/views.py`. A context processor (`gym/context_processors.py`) passes it to every template.
+
+### Section pages and CRUD lists
+
+Each card on a section page shows a live record count and opens that table's list at `/dashboard/?entity=<key>&action=list`. The list, create and edit pages keep the section's sub-categories as a pill row at the top, so you can switch between siblings directly.
+
+**Staff subtypes** (Trainers, Receptionists, Managers, Maintenance Staff) can be viewed and edited only. In place of an Add button they show a hint, e.g. *"To add a Trainer, add a Staff member with role Trainer"*. It opens the Staff form with the role already selected (`?entity=staff&action=create&role=Trainer`). The Staff list has a **Role details** column with each member's subtype attributes.
+
+**Subtypes as filters.** Members, Equipment and Payments have no separate subtype pages in the navigation. Instead, their list pages have filter buttons with counts. A caption names the specialization constraint, and an extra column shows the subtype's attributes:
+
+| List | Filter buttons (query parameter) | Constraint | Extra column |
+|------|----------------------------------|------------|--------------|
+| Members | All · Standard · Premium · Both · No tier (`?tier=standard\|premium\|both\|none`) | Overlapping + Partial | Tier: Standard / Premium badges, max visits, assigned trainer. Also an Active / Expired status. |
+| Equipment | All · Cardio · Strength · Accessories (`?category=Cardio\|Strength\|Other`) | Disjoint + Partial | Specs: max speed and incline levels, or weight stack and max load |
+| Payments | All · Cash · Card · Online (`?mode=Cash\|Card\|Online`) | Disjoint + Total | Details: receipt no, card type and last 4, or gateway and transaction ID |
+
+The old subtype screens (e.g. `?entity=cash_payment`) still work by URL, but nothing links to them.
+
+**Forms.** The Staff, Payment and Equipment forms show the chosen role, mode or category's subtype fields in the same form. Members get tier checkboxes. Subtype fields fade in and out as the choice changes, and the superclass and subtype rows are saved in one `transaction.atomic()`.
+
+### Other pages
 
 | Page | URL | What it shows |
 |------|-----|---------------|
-| CRUD dashboard | `/` | Create, edit and delete records for every table. Staff and Payment forms include their subtype fields. |
-| Analytics | `/analytics/` | KPIs, charts for monthly revenue, members per plan and member tiers |
-| Member profile | `/member/<id>/` | Every relationship for one member. Member names in the CRUD table link here. |
+| Member profile | `/member/<id>/` | Every relationship for one member. Member names in lists link here. |
+| Login | `/login/` | Split screen with a gym image on one side and the sign-in card on the other |
 
 ## Report section → where it's implemented
 
@@ -57,7 +93,7 @@ The tests cover the CHECK constraints, PROTECT deletes, overlapping member tiers
 | Lab 1: relationships in practice | Member profile page (`templates/gym/member_profile.html`) |
 | Lab 2a: STAFF, Disjoint + Total | `StaffForm` (`gym/forms.py`) saves the staff row and exactly one subtype row in `transaction.atomic()`. `Trainer.clean()` and the other subtypes check `staff.role`. |
 | Lab 2a: PAYMENT, Disjoint + Total | `PaymentForm` works the same way, using `mode` as the discriminator |
-| Lab 2a: EQUIPMENT, Disjoint + Partial | `CardioEquipment.clean()` and `StrengthEquipment.clean()` require the matching category. `Other` has no subtype. |
+| Lab 2a: EQUIPMENT, Disjoint + Partial | `EquipmentForm` (a `PartialSpecializationForm`) saves the equipment row and its Cardio or Strength row in `transaction.atomic()`. Changing the category deletes the old subtype row. `Other`, shown as **Accessories**, has no subtype (partial); only its display label was renamed (no-op migration `0004`). `CardioEquipment.clean()` and `StrengthEquipment.clean()` require the matching category. |
 | Lab 2a: MEMBER, Overlapping + Partial | `MemberForm` has a checkbox per tier (not a dropdown), so a member can have Standard, Premium, both or neither. Member and tier rows are saved in one `transaction.atomic()`. |
 | Lab 2a: shared-primary-key inheritance | Each subtype's `OneToOneField(..., primary_key=True)` to its superclass |
 | Lab 2b: sample INSERT statements | `gym/management/commands/seed_gym.py` |
@@ -78,10 +114,13 @@ The tests cover the CHECK constraints, PROTECT deletes, overlapping member tiers
 gym/
   models.py                  entities, subtypes, constraints
   forms.py                   CRUD forms, incl. superclass + subtype forms
-  views.py                   CRUD dashboard, analytics, member profile
+  views.py                   NAV_SECTIONS, home, section pages, CRUD dashboard, analytics, member profile
+  context_processors.py      exposes the navbar sections to every template
   management/commands/seed_gym.py
   tests.py
 templates/gym/
-  app_base.html              navbar + sidebar layout
+  app_base.html              top navbar layout
+  home.html  section.html    Home page, section landing pages
+  cells/  partials/          extra list columns, Gym Progress chart
   dashboard.html  analytics.html  member_profile.html  login.html
 ```

@@ -10,14 +10,16 @@ from django.db.models import ProtectedError
 from django.test import TestCase
 
 from .forms import (
-    AttendanceForm, BranchForm, ClassScheduleForm, MemberForm, PaymentForm, PremiumMemberForm, StaffForm,
-    StandardMemberForm, TrainerForm,
+    AttendanceForm, BranchForm, ClassScheduleForm, EquipmentForm, MemberForm, PaymentForm, PremiumMemberForm,
+    StaffForm, StandardMemberForm, TrainerForm,
 )
 from .models import (
-    Attendance, Branch, CardPayment, CashPayment, ClassSchedule, Feedback, GymClass, Manager, MaintenanceStaff,
-    Member,
-    MembershipPlan, OnlinePayment, Payment, PremiumMember, Receptionist, Staff, StandardMember, Trainer,
+    Attendance, Branch, CardioEquipment, CardPayment, CashPayment, ClassSchedule, Equipment, Feedback, GymClass,
+    Manager, MaintenanceStaff, Member,
+    MembershipPlan, OnlinePayment, Payment, PremiumMember, Receptionist, Staff, StandardMember, StrengthEquipment,
+    Trainer,
 )
+from .views import NAV_SECTIONS, gym_progress
 
 
 class GymDataMixin:
@@ -308,3 +310,151 @@ class SeedCommandTests(TestCase):
         for payment in Payment.objects.all():
             self.assertEqual(sum(hasattr(payment, r) for r in ('cash_details', 'card_details', 'online_details')),
                              1, payment)
+
+
+class LoggedInMixin(GymDataMixin):
+    def setUp(self):
+        super().setUp()
+        User.objects.create_user('admin', password='admin123')
+        self.client.login(username='admin', password='admin123')
+
+    def list_page(self, query):
+        return self.client.get(f'/dashboard/?{query}').context['object_list']
+
+
+class NavigationTests(LoggedInMixin, TestCase):
+    """Top navbar, Home page and section landing pages."""
+
+    def test_login_redirects_to_home(self):
+        self.client.logout()
+        response = self.client.post('/login/', {'username': 'admin', 'password': 'admin123'})
+        self.assertRedirects(response, '/home/')
+        self.assertContains(self.client.get('/home/'), 'Welcome back')
+
+    def test_root_redirects_to_home(self):
+        self.assertRedirects(self.client.get('/'), '/home/')
+
+    def test_every_section_page_loads(self):
+        for section in NAV_SECTIONS:
+            if section['items']:
+                response = self.client.get(f"/section/{section['key']}/")
+                self.assertEqual(response.status_code, 200, section['key'])
+        self.assertEqual(self.client.get('/section/nope/').status_code, 404)
+
+    def test_branch_staff_section_links_to_staff_subtypes(self):
+        page = self.client.get('/section/branch_staff/').content.decode()
+        self.assertIn('Staff Specializations (Disjoint, Total)', page)
+        for key in ('trainer', 'receptionist', 'manager', 'maintenance_staff'):
+            self.assertIn(f'?entity={key}&action=list', page)
+
+    def test_subtype_pages_point_to_the_superclass_form(self):
+        page = self.client.get('/dashboard/?entity=trainer&action=list').content.decode()
+        self.assertIn('?entity=staff&action=create&role=Trainer', page)
+        form = self.client.get('/dashboard/?entity=staff&action=create&role=Trainer').context['form']
+        self.assertEqual(form['role'].value(), 'Trainer')
+
+    def test_filtered_subtypes_are_not_linked_from_navigation(self):
+        hidden = ['standard_member', 'premium_member', 'cardio_equipment', 'strength_equipment',
+                  'cash_payment', 'card_payment', 'online_payment']
+        pages = ['/home/', '/analytics/'] + [f"/section/{s['key']}/" for s in NAV_SECTIONS if s['items']]
+        pages += ['/dashboard/?entity=member&action=list', '/dashboard/?entity=equipment&action=list',
+                  '/dashboard/?entity=payment&action=list']
+        for url in pages:
+            page = self.client.get(url).content.decode()
+            for key in hidden:
+                self.assertNotIn(f'entity={key}&', page, f'{key} linked from {url}')
+        # ...but their URLs still work
+        self.assertEqual(self.client.get('/dashboard/?entity=cash_payment&action=list').status_code, 200)
+
+
+class ListFilterTests(LoggedInMixin, TestCase):
+    """Superclass list pages filter by subtype through a query parameter."""
+
+    def test_equipment_category_filter(self):
+        cardio = Equipment.objects.create(name='Treadmill', category='Cardio', branch=self.branch)
+        Equipment.objects.create(name='Bench Press', category='Strength', branch=self.branch)
+        Equipment.objects.create(name='Yoga Mat', category='Other', branch=self.branch)
+        self.assertEqual(list(self.list_page('entity=equipment&action=list&category=Cardio')), [cardio])
+        self.assertEqual(len(self.list_page('entity=equipment&action=list')), 3)
+
+    def test_payment_mode_filter(self):
+        card = Payment.objects.create(member=self.member, amount=1500, pay_date=date(2026, 2, 1), mode='Card')
+        Payment.objects.create(member=self.member, amount=1500, pay_date=date(2026, 3, 1), mode='Cash')
+        self.assertEqual(list(self.list_page('entity=payment&action=list&mode=Card')), [card])
+
+    def test_member_tier_filter_both(self):
+        both = Member.objects.create(branch=self.branch, plan=self.plan, name='Riya Mehta', gender='F',
+                                     dob=date(1999, 8, 20), phone='9100000002', join_date=date(2026, 1, 15))
+        StandardMember.objects.create(member=both, max_visits_month=20)
+        PremiumMember.objects.create(member=both)
+        StandardMember.objects.create(member=self.member, max_visits_month=10)
+        self.assertEqual(list(self.list_page('entity=member&action=list&tier=both')), [both])
+        self.assertEqual(len(self.list_page('entity=member&action=list&tier=standard')), 2)
+
+
+class EquipmentSpecializationTests(GymDataMixin, TestCase):
+    """EQUIPMENT is Disjoint + Partial: Cardio, Strength, or no subtype (Accessories)."""
+
+    def equipment_form(self, instance=None, **data):
+        return EquipmentForm({'name': 'Treadmill', 'branch': self.branch.pk, **data}, instance=instance)
+
+    def saved_cardio(self):
+        form = self.equipment_form(category='Cardio', max_speed=18, incline_levels=12)
+        self.assertTrue(form.is_valid(), form.errors)
+        return form.save()
+
+    def test_cardio_saves_equipment_and_subtype(self):
+        form = self.equipment_form(category='Cardio', max_speed='18.5', incline_levels=12)
+        self.assertTrue(form.is_valid(), form.errors)
+        equipment = form.save()
+        self.assertEqual(CardioEquipment.objects.get(pk=equipment.pk).incline_levels, 12)
+        self.assertFalse(StrengthEquipment.objects.filter(pk=equipment.pk).exists())
+
+    def test_switching_to_accessories_deletes_the_cardio_row(self):
+        equipment = self.saved_cardio()
+        form = self.equipment_form(instance=equipment, category='Other')
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        self.assertEqual(Equipment.objects.get(pk=equipment.pk).category, 'Other')
+        self.assertFalse(CardioEquipment.objects.filter(pk=equipment.pk).exists())
+
+    def test_switching_category_moves_the_subtype_row(self):
+        equipment = self.saved_cardio()
+        form = self.equipment_form(instance=equipment, category='Strength', weight_stack=90, max_load=150)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        self.assertFalse(CardioEquipment.objects.filter(pk=equipment.pk).exists())
+        self.assertTrue(StrengthEquipment.objects.filter(pk=equipment.pk).exists())
+
+    def test_accessories_have_no_subtype_row(self):
+        form = self.equipment_form(name='Yoga Mat', category='Other')
+        self.assertTrue(form.is_valid(), form.errors)
+        equipment = form.save()
+        self.assertFalse(CardioEquipment.objects.filter(pk=equipment.pk).exists())
+        self.assertFalse(StrengthEquipment.objects.filter(pk=equipment.pk).exists())
+        self.assertEqual(equipment.get_category_display(), 'Accessories')
+
+    def test_subtype_fields_are_required_for_their_category(self):
+        form = self.equipment_form(category='Strength', weight_stack=90)
+        self.assertFalse(form.is_valid())
+        self.assertIn('max_load', form.errors)
+        self.assertFalse(Equipment.objects.exists())
+
+
+class GymProgressTests(GymDataMixin, TestCase):
+    def test_twelve_months_with_cumulative_members(self):
+        Member.objects.create(branch=self.branch, plan=self.plan, name='Riya Mehta', gender='F',
+                              dob=date(1999, 8, 20), phone='9100000002', join_date=date(2026, 3, 2))
+        Payment.objects.create(member=self.member, amount=1500, pay_date=date(2026, 1, 10), mode='Cash')
+        Payment.objects.create(member=self.member, amount=500, pay_date=date(2026, 1, 20), mode='Card')
+        progress = gym_progress(date(2026, 6, 15))
+
+        self.assertEqual(len(progress['labels']), 12)
+        self.assertEqual((progress['labels'][0], progress['labels'][-1]), ('Jul 2025', 'Jun 2026'))
+        members = progress['members']
+        self.assertEqual(len(members), 12)
+        self.assertTrue(all(a <= b for a, b in zip(members, members[1:])))
+        # Aman joined in Jan 2026 and Riya in Mar 2026; months with no data stay at 0
+        self.assertEqual(members[5:9], [0, 1, 1, 2])
+        self.assertEqual(progress['revenue'][6], 2000)
+        self.assertEqual(progress['revenue'][7], 0)
