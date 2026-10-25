@@ -1,0 +1,105 @@
+{% extends 'gym/app_base.html' %}
+{% load humanize %}
+
+{% block title %}Analytics - Gym Management System{% endblock %}
+
+{% block main %}
+<div class="mb-4">
+    <h2 class="mb-1"><i class="bi bi-bar-chart-line me-2 text-primary"></i>Analytics</h2>
+    <p class="text-muted mb-0">All branches</p>
+</div>
+
+<!-- KPI cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small">Total members</div>
+            <div class="fs-3 fw-bold">{{ kpis.total_members }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-xl">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small">Active members</div>
+            <div class="fs-3 fw-bold">{{ kpis.active_members }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-xl">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small">Revenue this month</div>
+            <div class="fs-3 fw-bold">₹{{ kpis.revenue_this_month|floatformat:0|intcomma }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-xl">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small">Today's attendance</div>
+            <div class="fs-3 fw-bold">{{ kpis.attendance_today }}</div>
+        </div></div>
+    </div>
+    <div class="col-12 col-xl">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small">Average rating</div>
+            <div class="fs-3 fw-bold">{% if kpis.avg_rating %}{{ kpis.avg_rating|floatformat:1 }} <span class="fs-6 text-muted">/ 5</span>{% else %}-{% endif %}</div>
+        </div></div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm"><div class="card-body">
+            <h6 class="card-title">Monthly revenue by payment mode</h6>
+            <div style="height: 280px"><canvas id="revenueChart"></canvas></div>
+        </div></div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="card-title">Members per membership plan</h6>
+            <div style="height: 260px"><canvas id="plansChart"></canvas></div>
+        </div></div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="card-title mb-0">Member tiers</h6>
+            <p class="small text-muted mb-2">MEMBER specialization: overlapping (both) + partial (no tier)</p>
+            <div style="height: 236px"><canvas id="tiersChart"></canvas></div>
+        </div></div>
+    </div>
+</div>
+
+{{ charts|json_script:"chart-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    const data = JSON.parse(document.getElementById('chart-data').textContent);
+    const palette = ['#0d6efd', '#20c997', '#fd7e14', '#6f42c1', '#dc3545'];
+    const rupees = value => '₹' + Number(value).toLocaleString('en-IN');
+    const seriesDatasets = series => Object.entries(series).map(([label, values], i) => ({
+        label, data: values, backgroundColor: palette[i % palette.length],
+    }));
+    const integerAxis = { beginAtZero: true, ticks: { precision: 0 } };
+    Chart.defaults.maintainAspectRatio = false;
+
+    new Chart(document.getElementById('revenueChart'), {
+        type: 'bar',
+        data: { labels: data.revenue.labels, datasets: seriesDatasets(data.revenue.series) },
+        options: {
+            scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: rupees } } },
+            plugins: { tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${rupees(ctx.parsed.y)}` } } },
+        },
+    });
+
+    new Chart(document.getElementById('plansChart'), {
+        type: 'bar',
+        data: { labels: data.plans.labels, datasets: [{ label: 'Members', data: data.plans.data, backgroundColor: palette[0] }] },
+        options: { scales: { y: integerAxis }, plugins: { legend: { display: false } } },
+    });
+
+    new Chart(document.getElementById('tiersChart'), {
+        type: 'doughnut',
+        data: { labels: data.tiers.labels, datasets: [{ data: data.tiers.data, backgroundColor: ['#0d6efd', '#fd7e14', '#6f42c1', '#adb5bd'] }] },
+        options: { plugins: { legend: { position: 'right' } } },
+    });
+</script>
+{% endblock %}
