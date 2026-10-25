@@ -349,6 +349,12 @@ class NavigationTests(LoggedInMixin, TestCase):
         for key in ('trainer', 'receptionist', 'manager', 'maintenance_staff'):
             self.assertIn(f'?entity={key}&action=list', page)
 
+    def test_feedback_is_not_in_others_but_still_opens_by_url(self):
+        page = self.client.get('/section/others/').content.decode()
+        self.assertNotIn('entity=feedback', page)
+        self.assertIn('entity=locker', page)
+        self.assertEqual(self.client.get('/dashboard/?entity=feedback&action=list').status_code, 200)
+
     def test_subtype_pages_point_to_the_superclass_form(self):
         page = self.client.get('/dashboard/?entity=trainer&action=list').content.decode()
         self.assertIn('?entity=staff&action=create&role=Trainer', page)

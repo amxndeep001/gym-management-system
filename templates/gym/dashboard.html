@@ -4,6 +4,7 @@
 {% block title %}{{ config.display_name }} - Gym Management System{% endblock %}
 
 {% block main %}
+            {% if section_tabs %}
             <!-- Sibling sub-categories of this section -->
             <nav class="section-tabs mb-4" aria-label="Sub-categories">
                 {% for tab in section_tabs %}
@@ -14,6 +15,7 @@
                     </a>
                 {% endfor %}
             </nav>
+            {% endif %}
 
             <!-- Header with Actions -->
             <div class="page-header d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">

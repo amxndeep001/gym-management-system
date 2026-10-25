@@ -312,8 +312,8 @@ NAV_SECTIONS = [
      'description': 'Classes, time slots and check-ins',
      'items': ['gym_class', 'class_schedule', 'attendance']},
     {'key': 'others', 'label': 'Others', 'icon': 'grid',
-     'description': 'Lockers, feedback, workout and diet plans',
-     'items': ['locker', 'feedback', 'workout_plan', 'diet_plan']},
+     'description': 'Lockers, workout and diet plans',
+     'items': ['locker', 'workout_plan', 'diet_plan']},
 ]
 SECTIONS = {section['key']: section for section in NAV_SECTIONS}
 
@@ -450,10 +450,12 @@ def dashboard(request):
         messages.info(request, managed_message(config))
         return redirect(f'{request.path}?entity={entity_key}&action=list')
 
+    section = SECTIONS.get(section_for_entity(entity_key))
     context = {
         'entity_key': entity_key,
         'config': config,
-        'section_tabs': entity_cards(section_entity_keys(SECTIONS[section_for_entity(entity_key)])),
+        # Tables outside every navbar section (e.g. feedback) still open by URL, just without sibling tabs
+        'section_tabs': entity_cards(section_entity_keys(section)) if section else [],
         'action': action,
         'object': None,
         'form': None,

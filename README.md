@@ -56,7 +56,7 @@ A sticky top navbar runs across every page. On small screens it collapses into a
 | **Membership & Members** | `/section/membership/` | Membership Plans and Members |
 | **Payments** | `/section/payments/` | Payments |
 | **Classes & Attendance** | `/section/classes/` | Gym Classes, Class Schedules, Attendance |
-| **Others** | `/section/others/` | Lockers, Feedback, Workout Plans, Diet Plans |
+| **Others** | `/section/others/` | Lockers, Workout Plans, Diet Plans |
 
 The navbar is built from `NAV_SECTIONS` in `gym/views.py`. A context processor (`gym/context_processors.py`) passes it to every template.
 
