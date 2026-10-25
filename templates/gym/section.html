@@ -1,0 +1,15 @@
+{% extends 'gym/app_base.html' %}
+
+{% block title %}{{ section.label }} - Gym Management System{% endblock %}
+
+{% block main %}
+<h2>{{ section.label }}</h2>
+<ul>
+    {% for card in cards %}
+        <li><a href="{% url 'dashboard' %}?entity={{ card.key }}&action=list">{{ card.label }}</a> ({{ card.count }})</li>
+    {% endfor %}
+    {% for card in subtype_cards %}
+        <li><a href="{% url 'dashboard' %}?entity={{ card.key }}&action=list">{{ card.label }}</a> ({{ card.count }})</li>
+    {% endfor %}
+</ul>
+{% endblock %}

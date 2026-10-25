@@ -64,6 +64,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'gym.context_processors.navigation',
             ],
         },
     },
@@ -124,7 +125,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Login/Logout URLs
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'dashboard'
+LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
 # Default primary key field type

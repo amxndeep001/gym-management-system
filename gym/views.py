@@ -1,10 +1,11 @@
 from datetime import date
 
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db.models import Avg, Count, ProtectedError, Q, Sum
 from django.db.models.functions import TruncMonth
@@ -214,14 +215,57 @@ for key in ('cash_payment', 'card_payment', 'online_payment'):
 for key in ('standard_member', 'premium_member'):
     ENTITY_CONFIG[key]['managed_by'] = 'member'
 
-ENTITY_GROUPS = {
-    'Branch & Staff': ['branch', 'staff', 'trainer', 'receptionist', 'manager', 'maintenance_staff'],
-    'Equipment': ['equipment', 'cardio_equipment', 'strength_equipment', 'equipment_maintenance'],
-    'Membership & Members': ['membership_plan', 'member', 'standard_member', 'premium_member'],
-    'Payments': ['payment', 'cash_payment', 'card_payment', 'online_payment'],
-    'Classes & Attendance': ['gym_class', 'class_schedule', 'attendance'],
-    'Other': ['locker', 'feedback', 'workout_plan', 'diet_plan'],
-}
+# Top navbar: one entry per section. Sections with `items` open /section/<key>/, a page of
+# sub-category cards; `subtypes` adds a second row of cards for a specialization's subclasses.
+NAV_SECTIONS = [
+    {'key': 'home', 'label': 'Home', 'icon': 'house-door', 'url_name': 'home', 'items': []},
+    {'key': 'analytics', 'label': 'Analytics', 'icon': 'bar-chart-line', 'url_name': 'analytics', 'items': []},
+    {'key': 'branch_staff', 'label': 'Branch & Staff', 'icon': 'building',
+     'description': 'Branches and the people who run them',
+     'items': ['branch', 'staff'],
+     'subtypes': {'title': 'Staff Specializations (Disjoint, Total)',
+                  'items': ['trainer', 'receptionist', 'manager', 'maintenance_staff']}},
+    {'key': 'equipment', 'label': 'Equipment', 'icon': 'gear',
+     'description': 'Machines, accessories and their upkeep',
+     'items': ['equipment', 'equipment_maintenance']},
+    {'key': 'membership', 'label': 'Membership & Members', 'icon': 'people',
+     'description': 'Plans, members and their tiers',
+     'items': ['membership_plan', 'member']},
+    {'key': 'payments', 'label': 'Payments', 'icon': 'cash-coin',
+     'description': 'Cash, card and online payments',
+     'items': ['payment']},
+    {'key': 'classes', 'label': 'Classes & Attendance', 'icon': 'calendar-week',
+     'description': 'Classes, time slots and check-ins',
+     'items': ['gym_class', 'class_schedule', 'attendance']},
+    {'key': 'others', 'label': 'Others', 'icon': 'grid',
+     'description': 'Lockers, feedback, workout and diet plans',
+     'items': ['locker', 'feedback', 'workout_plan', 'diet_plan']},
+]
+SECTIONS = {section['key']: section for section in NAV_SECTIONS}
+
+
+def section_entity_keys(section):
+    return section['items'] + section.get('subtypes', {}).get('items', [])
+
+
+ENTITY_SECTION = {key: section['key'] for section in NAV_SECTIONS for key in section_entity_keys(section)}
+
+
+def section_for_entity(entity_key):
+    """Navbar section of an entity; unlinked subtypes (e.g. cash_payment) belong to their superclass's."""
+    config = ENTITY_CONFIG.get(entity_key, {})
+    return ENTITY_SECTION.get(entity_key) or ENTITY_SECTION.get(config.get('managed_by'))
+
+
+def entity_cards(keys, counts=False):
+    cards = []
+    for key in keys:
+        config = ENTITY_CONFIG[key]
+        card = {'key': key, 'label': config['display_name'], 'icon': config['icon']}
+        if counts:
+            card['count'] = config['model'].objects.count()
+        cards.append(card)
+    return cards
 
 
 def managed_message(config):
@@ -262,7 +306,7 @@ def get_object(entity_key, pk):
 
 def user_login(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('home')
 
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -270,8 +314,7 @@ def user_login(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            messages.success(request, f'Welcome back, {user.username}!')
-            return redirect('dashboard')
+            return redirect(settings.LOGIN_REDIRECT_URL)
         else:
             messages.error(request, 'Invalid username or password.')
 
@@ -301,9 +344,8 @@ def dashboard(request):
 
     context = {
         'entity_key': entity_key,
-        'active_page': entity_key,
         'config': config,
-        'entity_groups': ENTITY_GROUPS,
+        'section_tabs': entity_cards(section_entity_keys(SECTIONS[section_for_entity(entity_key)])),
         'action': action,
         'object': None,
         'form': None,
@@ -487,10 +529,27 @@ def analytics(request):
     }
 
     return render(request, 'gym/analytics.html', {
-        'active_page': 'analytics',
-        'entity_groups': ENTITY_GROUPS,
         'kpis': kpis,
         'charts': charts,
+    })
+
+
+@login_required
+def home(request):
+    return render(request, 'gym/home.html')
+
+
+@login_required
+def section(request, section_key):
+    section = SECTIONS.get(section_key)
+    if not section or not section['items']:
+        raise Http404('Unknown section')
+    subtypes = section.get('subtypes')
+    return render(request, 'gym/section.html', {
+        'section': section,
+        'cards': entity_cards(section['items'], counts=True),
+        'subtype_title': subtypes['title'] if subtypes else None,
+        'subtype_cards': entity_cards(subtypes['items'], counts=True) if subtypes else None,
     })
 
 
@@ -499,8 +558,6 @@ def member_profile(request, pk):
     member = get_object_or_404(Member.objects.select_related('branch', 'plan'), pk=pk)
     payments = member.payments.select_related('cash_details', 'card_details', 'online_details').order_by('-pay_date')
     return render(request, 'gym/member_profile.html', {
-        'active_page': 'member',
-        'entity_groups': ENTITY_GROUPS,
         'member': member,
         'standard': StandardMember.objects.filter(member=member).first(),
         'premium': PremiumMember.objects.select_related('assigned_trainer__staff').filter(member=member).first(),

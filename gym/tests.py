@@ -74,7 +74,7 @@ class ProtectDeleteTests(GymDataMixin, TestCase):
     def test_dashboard_shows_friendly_message(self):
         User.objects.create_user('admin', password='admin123')
         self.client.login(username='admin', password='admin123')
-        response = self.client.post(f'/?entity=membership_plan&action=delete&pk={self.plan.pk}', follow=True)
+        response = self.client.post(f'/dashboard/?entity=membership_plan&action=delete&pk={self.plan.pk}', follow=True)
         message = str(list(response.context['messages'])[0])
         self.assertIn('Cannot delete', message)
         self.assertIn('Aman Gupta', message)
@@ -195,10 +195,10 @@ class SubtypeDiscriminatorTests(GymDataMixin, TestCase):
     def test_total_subtypes_cannot_be_created_or_deleted_on_their_own(self):
         User.objects.create_user('admin', password='admin123')
         self.client.login(username='admin', password='admin123')
-        page = self.client.get('/?entity=trainer').content.decode()
+        page = self.client.get('/dashboard/?entity=trainer').content.decode()
         self.assertNotIn('action=create" class="btn btn-primary"', page)
         self.assertNotIn("confirmDelete('", page)
-        self.client.post(f'/?entity=trainer&action=delete&pk={self.trainer.pk}')
+        self.client.post(f'/dashboard/?entity=trainer&action=delete&pk={self.trainer.pk}')
         self.assertTrue(Trainer.objects.filter(pk=self.trainer.pk).exists())
         response = self.client.post('/ajax/create/cash_payment/', {})
         self.assertFalse(response.json()['success'])
