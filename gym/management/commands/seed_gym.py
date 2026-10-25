@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+from gym.forms import STANDARD_MAX_VISITS
 from gym.models import (
     Branch, Staff, Trainer, Receptionist, Manager, MaintenanceStaff,
     Equipment, CardioEquipment, StrengthEquipment,
@@ -290,7 +291,7 @@ class Command(BaseCommand):
             # MEMBER is Overlapping + Partial: standard, premium, both or neither
             tier = weighted(rng, TIER_WEIGHTS)
             if tier in ('standard', 'both'):
-                StandardMember.objects.create(member=member, max_visits_month=rng.choice([12, 16, 20]))
+                StandardMember.objects.create(member=member, max_visits_month=STANDARD_MAX_VISITS)
             if tier in ('premium', 'both'):
                 trainer = rng.choice(trainers_by_branch.get(branch, all_trainers))
                 PremiumMember.objects.create(member=member, assigned_trainer_id=trainer,

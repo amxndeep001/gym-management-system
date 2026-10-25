@@ -13,6 +13,10 @@ from .models import (
 )
 
 
+# Every Standard member gets the same visit cap; the Member form sets it rather than asking for it
+STANDARD_MAX_VISITS = 20
+
+
 def limit_parent_choices(form, field_name, queryset):
     """Restrict a subtype's superclass dropdown, keeping the record being edited in it.
 
@@ -276,19 +280,16 @@ class MemberForm(forms.ModelForm):
     Checkboxes rather than a dropdown: a member may hold the Standard tier, the Premium tier,
     both, or neither. Member and tier rows are saved together in one transaction.
     """
-    is_standard = forms.BooleanField(required=False, label='Standard tier')
-    max_visits_month = forms.IntegerField(
-        required=False, label='Max visits per month',
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Max Visits per Month', 'min': '1'}))
+    is_standard = forms.BooleanField(required=False, label=f'Standard tier ({STANDARD_MAX_VISITS} visits / month)')
     is_premium = forms.BooleanField(required=False, label='Premium tier')
     assigned_trainer = forms.ModelChoiceField(
         queryset=Trainer.objects.select_related('staff'), required=False,
         widget=forms.Select(attrs={'class': 'form-select'}))
     priority_diet_access = forms.BooleanField(required=False, initial=True)
 
-    # tier checkbox -> (tier model, the tier's fields)
+    # tier checkbox -> (tier model, the tier's fields entered on this form)
     tiers = {
-        'is_standard': (StandardMember, ['max_visits_month']),
+        'is_standard': (StandardMember, []),
         'is_premium': (PremiumMember, ['assigned_trainer', 'priority_diet_access']),
     }
 
@@ -307,7 +308,6 @@ class MemberForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['max_visits_month'].required_when_shown = True
         for checkbox, (model, names) in self.tiers.items():
             existing = model.objects.filter(pk=self.instance.pk).first() if self.instance.pk else None
             if existing:
@@ -319,14 +319,13 @@ class MemberForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get('is_standard') and not self.has_error('max_visits_month') \
-                and cleaned.get('max_visits_month') is None:
-            self.add_error('max_visits_month', 'Required for the Standard tier.')
         self._tier_rows = {}
         for checkbox, (model, names) in self.tiers.items():
             if not cleaned.get(checkbox):
                 continue
             row = (model.objects.filter(pk=self.instance.pk).first() if self.instance.pk else None) or model()
+            if model is StandardMember:
+                row.max_visits_month = STANDARD_MAX_VISITS
             failed = [name for name in names if self.has_error(name)]
             for name in names:
                 if name not in failed:

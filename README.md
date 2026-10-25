@@ -94,7 +94,7 @@ The old subtype screens (e.g. `?entity=cash_payment`) still work by URL, but not
 | Lab 2a: STAFF, Disjoint + Total | `StaffForm` (`gym/forms.py`) saves the staff row and exactly one subtype row in `transaction.atomic()`. `Trainer.clean()` and the other subtypes check `staff.role`. |
 | Lab 2a: PAYMENT, Disjoint + Total | `PaymentForm` works the same way, using `mode` as the discriminator |
 | Lab 2a: EQUIPMENT, Disjoint + Partial | `EquipmentForm` (a `PartialSpecializationForm`) saves the equipment row and its Cardio or Strength row in `transaction.atomic()`. Changing the category deletes the old subtype row. `Other`, shown as **Accessories**, has no subtype (partial); only its display label was renamed (no-op migration `0004`). `CardioEquipment.clean()` and `StrengthEquipment.clean()` require the matching category. |
-| Lab 2a: MEMBER, Overlapping + Partial | `MemberForm` has a checkbox per tier (not a dropdown), so a member can have Standard, Premium, both or neither. Member and tier rows are saved in one `transaction.atomic()`. |
+| Lab 2a: MEMBER, Overlapping + Partial | `MemberForm` has a checkbox per tier (not a dropdown), so a member can have Standard, Premium, both or neither. Every Standard member gets the same cap, `STANDARD_MAX_VISITS` = 20 visits a month, so the form sets `max_visits_month` instead of asking for it. Member and tier rows are saved in one `transaction.atomic()`. |
 | Lab 2a: shared-primary-key inheritance | Each subtype's `OneToOneField(..., primary_key=True)` to its superclass |
 | Lab 2b: sample INSERT statements | `gym/management/commands/seed_gym.py` |
 | Lab 2b: join queries | The member profile and analytics pages show the same joins through the ORM |

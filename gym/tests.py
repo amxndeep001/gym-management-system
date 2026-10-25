@@ -10,7 +10,7 @@ from django.db.models import ProtectedError
 from django.test import TestCase
 
 from .forms import (
-    AttendanceForm, BranchForm, ClassScheduleForm, EquipmentForm, MemberForm, PaymentForm, PremiumMemberForm,
+    STANDARD_MAX_VISITS, AttendanceForm, BranchForm, ClassScheduleForm, EquipmentForm, MemberForm, PaymentForm, PremiumMemberForm,
     StaffForm, StandardMemberForm, TrainerForm,
 )
 from .models import (
@@ -92,7 +92,7 @@ class OverlappingMemberTierTests(GymDataMixin, TestCase):
         return MemberForm(data, instance=instance)
 
     def test_member_form_saves_both_tiers_together(self):
-        form = self.member_form(is_standard='on', max_visits_month=20, is_premium='on',
+        form = self.member_form(is_standard='on', is_premium='on',
                                 assigned_trainer=self.trainer.pk, priority_diet_access='on')
         self.assertTrue(form.is_valid(), form.errors)
         member = form.save()
@@ -106,10 +106,12 @@ class OverlappingMemberTierTests(GymDataMixin, TestCase):
         self.assertFalse(StandardMember.objects.filter(pk=member.pk).exists())
         self.assertFalse(PremiumMember.objects.filter(pk=member.pk).exists())
 
-    def test_standard_tier_requires_valid_max_visits(self):
-        self.assertIn('max_visits_month', self.member_form(is_standard='on').errors)
-        self.assertIn('max_visits_month', self.member_form(is_standard='on', max_visits_month=40).errors)
-        self.assertFalse(Member.objects.filter(name='Riya Mehta').exists())
+    def test_standard_tier_gets_the_fixed_visit_cap(self):
+        form = self.member_form(is_standard='on', max_visits_month=5)  # not a form field: ignored
+        self.assertNotIn('max_visits_month', form.fields)
+        self.assertTrue(form.is_valid(), form.errors)
+        member = form.save()
+        self.assertEqual(StandardMember.objects.get(pk=member.pk).max_visits_month, STANDARD_MAX_VISITS)
 
     def test_unticking_a_tier_removes_it(self):
         StandardMember.objects.create(member=self.member, max_visits_month=20)
