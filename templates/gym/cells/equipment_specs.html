@@ -1,0 +1,6 @@
+{# EQUIPMENT (Disjoint + Partial): the one subclass's attributes, or none for Accessories #}
+{% if obj.cardio_details %}
+    {{ obj.cardio_details.max_speed }} km/h max &middot; {{ obj.cardio_details.incline_levels }} incline levels
+{% elif obj.strength_details %}
+    {{ obj.strength_details.weight_stack }} kg stack &middot; {{ obj.strength_details.max_load }} kg max load
+{% else %}<span class="text-muted">–</span>{% endif %}

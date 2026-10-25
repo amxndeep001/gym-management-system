@@ -4,20 +4,35 @@
 {% block title %}{{ config.display_name }} - Gym Management System{% endblock %}
 
 {% block main %}
+            <!-- Sibling sub-categories of this section -->
+            <nav class="section-tabs mb-4" aria-label="Sub-categories">
+                {% for tab in section_tabs %}
+                    <a href="?entity={{ tab.key }}&action=list"
+                       class="section-tab{% if tab.key == entity_key %} active{% endif %}"
+                       {% if tab.key == entity_key %}aria-current="page"{% endif %}>
+                        <i class="bi bi-{{ tab.icon }}"></i>{{ tab.label }}
+                    </a>
+                {% endfor %}
+            </nav>
+
             <!-- Header with Actions -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="page-header d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
                 <div>
-                    <h2 class="mb-1"><i class="bi bi-{{ config.icon }} me-2 text-primary"></i>{{ config.display_name }}</h2>
+                    <h1 class="page-title"><span class="page-title-icon"><i class="bi bi-{{ config.icon }}"></i></span>{{ config.display_name }}</h1>
                     <p class="text-muted mb-0">Manage {{ config.display_name|lower }} records</p>
                 </div>
                 {% if action == 'list' %}
-                    {% if not config.managed_by %}
+                    {% if config.managed_by %}
+                        <a href="?entity={{ config.managed_by }}&action=create&{{ config.create_query }}" class="subtype-hint">
+                            <i class="bi bi-info-circle"></i><span>{{ config.create_hint }}</span><i class="bi bi-arrow-right"></i>
+                        </a>
+                    {% else %}
                         <a href="?entity={{ entity_key }}&action=create" class="btn btn-primary">
-                            <i class="bi bi-plus-lg me-1"></i>Add New
+                            <i class="bi bi-plus-lg me-1"></i>Add {{ config.singular }}
                         </a>
                     {% endif %}
                 {% elif action in 'create edit' %}
-                    <a href="?entity={{ entity_key }}&action=list" class="btn btn-secondary">
+                    <a href="?entity={{ entity_key }}&action=list" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left me-1"></i>Back to List
                     </a>
                 {% endif %}
@@ -25,18 +40,37 @@
 
             <!-- Content Area -->
             {% if action == 'list' %}
+                {% if list_filter %}
+                    <!-- Subtype filter buttons -->
+                    <div class="filter-bar mb-3">
+                        <div class="filter-buttons" role="group" aria-label="Filter by {{ list_filter.param }}">
+                            {% for button in list_filter.buttons %}
+                                <a href="?entity={{ entity_key }}&action=list{% if button.value %}&{{ list_filter.param }}={{ button.value }}{% endif %}"
+                                   class="filter-btn{% if button.active %} active{% endif %}"
+                                   {% if button.active %}aria-current="true"{% endif %}>
+                                    {{ button.label }}<span class="filter-count">{{ button.count }}</span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                        <span class="constraint-caption"><i class="bi bi-diagram-3"></i>{{ list_filter.caption }}</span>
+                    </div>
+                {% endif %}
+
                 <!-- List View -->
-                <div class="card shadow-sm">
+                <div class="card data-card">
                     <div class="card-body p-0">
                         {% if object_list %}
-                            <div class="table-responsive">
-                                <table class="table table-hover mb-0">
-                                    <thead class="table-light">
+                            <div class="table-responsive table-sticky">
+                                <table class="table table-striped table-hover align-middle mb-0">
+                                    <thead>
                                         <tr>
                                             {% for field in config.list_fields %}
                                                 <th scope="col">{{ field|replace:"_"|title }}</th>
                                             {% endfor %}
-                                            <th scope="col" class="text-center">Actions</th>
+                                            {% for label, template in config.extra_columns %}
+                                                <th scope="col">{{ label }}</th>
+                                            {% endfor %}
+                                            <th scope="col" class="text-end">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -44,31 +78,34 @@
                                             <tr>
                                                 {% for field in config.list_fields %}
                                                     <td>
-                                                        {% with value=obj|get_attr:field %}
+                                                        {% with value=obj|display_value:field %}
                                                             {% if entity_key == 'member' and field == 'name' %}
-                                                                <a href="{% url 'member_profile' obj.pk %}">{{ value }}</a>
-                                                            {% elif value %}
+                                                                <a href="{% url 'member_profile' obj.pk %}" class="fw-semibold">{{ value }}</a>
+                                                            {% elif field == 'status' %}
+                                                                <span class="badge badge-{{ value|lower }}">{{ value }}</span>
+                                                            {% elif value is not None and value != '' %}
                                                                 {{ value }}
                                                             {% else %}
-                                                                <span class="text-muted">-</span>
+                                                                <span class="text-muted">–</span>
                                                             {% endif %}
                                                         {% endwith %}
                                                     </td>
                                                 {% endfor %}
-                                                <td class="text-center">
-                                                    <div class="btn-group btn-group-sm">
-                                                        <a href="?entity={{ entity_key }}&action=edit&pk={{ obj.pk }}" 
-                                                           class="btn btn-outline-primary" title="Edit">
-                                                            <i class="bi bi-pencil"></i>
-                                                        </a>
-                                                        {% if not config.managed_by %}
-                                                        <button type="button" class="btn btn-outline-danger"
-                                                                onclick="confirmDelete('{{ entity_key }}', {{ obj.pk }}, '{{ obj|truncatewords:5 }}')"
-                                                                title="Delete">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
-                                                        {% endif %}
-                                                    </div>
+                                                {% for label, template in config.extra_columns %}
+                                                    <td class="extra-cell">{% include template %}</td>
+                                                {% endfor %}
+                                                <td class="text-end text-nowrap">
+                                                    <a href="?entity={{ entity_key }}&action=edit&pk={{ obj.pk }}"
+                                                       class="btn-icon" title="Edit" aria-label="Edit">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </a>
+                                                    {% if not config.managed_by %}
+                                                    <button type="button" class="btn-icon btn-icon-danger"
+                                                            onclick="confirmDelete('{{ entity_key }}', {{ obj.pk }}, '{{ obj|truncatewords:5|escapejs }}')"
+                                                            title="Delete" aria-label="Delete">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                    {% endif %}
                                                 </td>
                                             </tr>
                                         {% endfor %}
@@ -76,13 +113,12 @@
                                 </table>
                             </div>
                         {% else %}
-                            <div class="text-center py-5">
-                                <i class="bi bi-inbox display-1 text-muted"></i>
-                                <h5 class="text-muted mt-3">No records found</h5>
+                            <div class="empty-state">
+                                <i class="bi bi-inbox"></i>
+                                <h5>No records found</h5>
                                 {% if not config.managed_by %}
-                                <p class="text-muted">Click "Add New" to create your first record.</p>
                                 <a href="?entity={{ entity_key }}&action=create" class="btn btn-primary mt-2">
-                                    <i class="bi bi-plus-lg me-1"></i>Add New
+                                    <i class="bi bi-plus-lg me-1"></i>Add {{ config.singular }}
                                 </a>
                                 {% endif %}
                             </div>
@@ -92,19 +128,20 @@
 
             {% elif action in 'create edit' %}
                 <!-- Form View -->
-                <div class="card shadow-sm">
-                    <div class="card-header {% if action == 'create' %}bg-success{% else %}bg-warning{% endif %} text-white">
-                        <h5 class="mb-0">
-                            <i class="bi bi-{% if action == 'create' %}plus-lg{% else %}pencil{% endif %} me-2"></i>
-                            {% if action == 'create' %}Add New {{ config.display_name|slice:":-1" }}{% else %}Edit {{ config.display_name|slice:":-1" }}{% endif %}
-                        </h5>
+                <div class="card form-card">
+                    <div class="form-card-header">
+                        <span class="form-card-icon"><i class="bi bi-{% if action == 'create' %}plus-lg{% else %}pencil{% endif %}"></i></span>
+                        <div>
+                            <h2 class="h5 mb-0">{% if action == 'create' %}Add {{ config.singular }}{% else %}Edit {{ config.singular }}{% endif %}</h2>
+                            {% if object %}<small>{{ object }}</small>{% endif %}
+                        </div>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-4">
                         <form method="POST" id="entity-form" novalidate{% if form.discriminator %} data-discriminator="{{ form.discriminator }}"{% endif %}>
                             {% csrf_token %}
-                            
+
                             {% if form.non_field_errors %}
-                                <div class="alert alert-danger">
+                                <div class="alert alert-danger alert-permanent">
                                     {% for error in form.non_field_errors %}
                                         {{ error }}
                                     {% endfor %}
@@ -113,15 +150,15 @@
 
                             <div class="row">
                                 {% for field in form %}
-                                    <div class="col-md-6 mb-3"{% if field.field.subtype %} data-subtype="{{ field.field.subtype }}"{% endif %}{% if field.field.toggled_by %} data-toggled-by="{{ field.field.toggled_by }}"{% endif %}>
-                                        <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                                    <div class="col-md-6 mb-3{% if field.field.subtype or field.field.toggled_by %} dynamic-field{% endif %}"{% if field.field.subtype %} data-subtype="{{ field.field.subtype }}"{% endif %}{% if field.field.toggled_by %} data-toggled-by="{{ field.field.toggled_by }}"{% endif %}>
+                                        <label for="{{ field.id_for_label }}" class="form-label">
                                             {{ field.label }}
                                             {% if field.field.required or field.field.subtype or field.field.required_when_shown %}<span class="text-danger">*</span>{% endif %}
                                         </label>
                                         {% if field.field.widget.input_type == 'select' %}
                                             {{ field|add_class:"form-select" }}
                                         {% elif field.field.widget.input_type == 'checkbox' %}
-                                            <div class="form-check">
+                                            <div class="form-check form-switch">
                                                 {{ field|add_class:"form-check-input" }}
                                             </div>
                                         {% else %}
@@ -138,10 +175,10 @@
                             </div>
 
                             <div class="d-flex justify-content-end gap-2 mt-4">
-                                <a href="?entity={{ entity_key }}&action=list" class="btn btn-secondary">
+                                <a href="?entity={{ entity_key }}&action=list" class="btn btn-outline-secondary">
                                     <i class="bi bi-x-lg me-1"></i>Cancel
                                 </a>
-                                <button type="submit" class="btn {% if action == 'create' %}btn-success{% else %}btn-warning{% endif %}">
+                                <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-{% if action == 'create' %}check-lg{% else %}save{% endif %} me-1"></i>
                                     {% if action == 'create' %}Create{% else %}Update{% endif %}
                                 </button>
@@ -152,20 +189,21 @@
 
             {% elif action == 'delete' %}
                 <!-- Delete Confirmation -->
-                <div class="card shadow-sm border-danger">
-                    <div class="card-header bg-danger text-white">
-                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Deletion</h5>
+                <div class="card form-card">
+                    <div class="form-card-header form-card-header-danger">
+                        <span class="form-card-icon"><i class="bi bi-exclamation-triangle"></i></span>
+                        <h2 class="h5 mb-0">Confirm Deletion</h2>
                     </div>
-                    <div class="card-body">
-                        <p class="lead">Are you sure you want to delete this {{ config.display_name|slice:":-1"|lower }}?</p>
-                        <div class="alert alert-warning">
+                    <div class="card-body p-4">
+                        <p class="lead">Are you sure you want to delete this {{ config.singular|lower }}?</p>
+                        <div class="alert alert-warning alert-permanent">
                             <strong>This action cannot be undone.</strong>
                         </div>
-                        
+
                         <dl class="row">
                             {% for field in config.list_fields %}
                                 <dt class="col-sm-3">{{ field|replace:"_"|title }}</dt>
-                                <dd class="col-sm-9">{{ object|get_attr:field|default:"-" }}</dd>
+                                <dd class="col-sm-9">{{ object|display_value:field|default:"-" }}</dd>
                             {% endfor %}
                         </dl>
 
@@ -175,7 +213,7 @@
                                 <i class="bi bi-trash me-1"></i>Yes, Delete
                             </button>
                         </form>
-                        <a href="?entity={{ entity_key }}&action=list" class="btn btn-secondary ms-2">
+                        <a href="?entity={{ entity_key }}&action=list" class="btn btn-outline-secondary ms-2">
                             <i class="bi bi-x-lg me-1"></i>Cancel
                         </a>
                     </div>
@@ -186,11 +224,11 @@
 {% block after_main %}
 <!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Deletion</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to delete this record?</p>
@@ -198,15 +236,15 @@
                 <p class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>This action cannot be undone.</p>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i>Cancel
+                </button>
                 <form method="POST" id="deleteForm" class="d-inline">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-danger">
                         <i class="bi bi-trash me-1"></i>Yes, Delete
                     </button>
                 </form>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-lg me-1"></i>Cancel
-                </button>
             </div>
         </div>
     </div>
@@ -217,23 +255,37 @@
 <script>
     // Store delete URL and update form action
     let deleteUrl = '';
-    
+
     function confirmDelete(entityKey, pk, itemName) {
         deleteUrl = `?entity=${entityKey}&action=delete&pk=${pk}`;
         document.getElementById('deleteItemName').textContent = itemName;
         document.getElementById('deleteForm').action = deleteUrl;
-        
+
         const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
         modal.show();
     }
 
-    // Disjoint + Total hierarchies: only show the subtype fields matching the chosen role / mode
+    // Fade a dynamic subtype field in or out instead of letting the form jump
+    const setShown = (el, shown) => {
+        clearTimeout(el._hideTimer);
+        if (shown) {
+            el.hidden = false;
+            requestAnimationFrame(() => el.classList.remove('is-hidden'));
+        } else if (el.hidden) {
+            el.classList.add('is-hidden');
+        } else {
+            el.classList.add('is-hidden');
+            el._hideTimer = setTimeout(() => { el.hidden = true; }, 200);
+        }
+    };
+
+    // Disjoint hierarchies (role / mode / category): only show the subtype fields of the chosen value
     const entityForm = document.querySelector('#entity-form[data-discriminator]');
     if (entityForm) {
         const selector = entityForm.querySelector(`[name="${entityForm.dataset.discriminator}"]`);
         const toggleSubtypeFields = () => {
             entityForm.querySelectorAll('[data-subtype]').forEach(el => {
-                el.style.display = el.dataset.subtype === selector.value ? '' : 'none';
+                setShown(el, el.dataset.subtype === selector.value);
             });
         };
         selector.addEventListener('change', toggleSubtypeFields);
@@ -243,7 +295,7 @@
     // Overlapping + Partial (member tiers): show a tier's fields only while its checkbox is ticked
     document.querySelectorAll('#entity-form [data-toggled-by]').forEach(el => {
         const checkbox = document.querySelector(`#entity-form [name="${el.dataset.toggledBy}"]`);
-        const sync = () => { el.style.display = checkbox.checked ? '' : 'none'; };
+        const sync = () => setShown(el, checkbox.checked);
         checkbox.addEventListener('change', sync);
         sync();
     });

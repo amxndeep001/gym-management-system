@@ -1,15 +1,70 @@
 {% extends 'gym/app_base.html' %}
+{% load humanize %}
 
 {% block title %}{{ section.label }} - Gym Management System{% endblock %}
 
 {% block main %}
-<h2>{{ section.label }}</h2>
-<ul>
+<div class="page-header mb-4">
+    <h1 class="page-title"><span class="page-title-icon"><i class="bi bi-{{ section.icon }}"></i></span>{{ section.label }}</h1>
+    <p class="text-muted mb-0">{{ section.description }}</p>
+</div>
+
+{% if equipment_stats %}
+    <!-- Equipment counts per category (Disjoint + Partial) -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4 col-xl">
+            <div class="stat-card"><span class="stat-label">Total</span><span class="stat-value">{{ equipment_stats.total }}</span></div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <a class="stat-card stat-card-link" href="{% url 'dashboard' %}?entity=equipment&action=list&category=Cardio">
+                <span class="stat-label"><i class="bi bi-activity"></i>Cardio</span><span class="stat-value">{{ equipment_stats.cardio }}</span>
+            </a>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <a class="stat-card stat-card-link" href="{% url 'dashboard' %}?entity=equipment&action=list&category=Strength">
+                <span class="stat-label"><i class="bi bi-trophy"></i>Strength</span><span class="stat-value">{{ equipment_stats.strength }}</span>
+            </a>
+        </div>
+        <div class="col-6 col-md-6 col-xl">
+            <a class="stat-card stat-card-link" href="{% url 'dashboard' %}?entity=equipment&action=list&category=Other">
+                <span class="stat-label"><i class="bi bi-bag"></i>Accessories</span><span class="stat-value">{{ equipment_stats.accessories }}</span>
+                <span class="stat-note">Partial specialization – not a Cardio or Strength subclass</span>
+            </a>
+        </div>
+        <div class="col-12 col-md-6 col-xl">
+            <a class="stat-card stat-card-link" href="{% url 'dashboard' %}?entity=equipment_maintenance&action=list">
+                <span class="stat-label"><i class="bi bi-tools"></i>Maintenance this month</span>
+                <span class="stat-value">₹{{ equipment_stats.maintenance_cost|floatformat:0|intcomma }}</span>
+            </a>
+        </div>
+    </div>
+{% endif %}
+
+<div class="row g-3 g-lg-4">
     {% for card in cards %}
-        <li><a href="{% url 'dashboard' %}?entity={{ card.key }}&action=list">{{ card.label }}</a> ({{ card.count }})</li>
+        <div class="col-sm-6 col-lg-4 col-xxl-3">
+            <a href="{% url 'dashboard' %}?entity={{ card.key }}&action=list" class="category-card">
+                <span class="category-icon"><i class="bi bi-{{ card.icon }}"></i></span>
+                <span class="category-name">{{ card.label }}</span>
+                <span class="category-count">{{ card.count|intcomma }} record{{ card.count|pluralize }}</span>
+                <i class="bi bi-arrow-right category-arrow"></i>
+            </a>
+        </div>
     {% endfor %}
-    {% for card in subtype_cards %}
-        <li><a href="{% url 'dashboard' %}?entity={{ card.key }}&action=list">{{ card.label }}</a> ({{ card.count }})</li>
-    {% endfor %}
-</ul>
+</div>
+
+{% if subtype_cards %}
+    <h2 class="subsection-title mt-5 mb-3">{{ subtype_title }}</h2>
+    <div class="row g-3">
+        {% for card in subtype_cards %}
+            <div class="col-6 col-lg-3">
+                <a href="{% url 'dashboard' %}?entity={{ card.key }}&action=list" class="category-card category-card-sm">
+                    <span class="category-icon"><i class="bi bi-{{ card.icon }}"></i></span>
+                    <span class="category-name">{{ card.label }}</span>
+                    <span class="category-count">{{ card.count }}</span>
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
 {% endblock %}

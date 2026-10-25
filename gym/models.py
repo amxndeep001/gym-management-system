@@ -155,7 +155,7 @@ class Equipment(models.Model):
     CATEGORY_CHOICES = [
         ('Cardio', 'Cardio'),
         ('Strength', 'Strength'),
-        ('Other', 'Other'),
+        ('Other', 'Accessories'),  # Partial: neither Cardio nor Strength, so no subtype row
     ]
 
     equipment_id = models.AutoField(primary_key=True)

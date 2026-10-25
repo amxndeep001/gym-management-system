@@ -1,0 +1,10 @@
+{# MEMBER tiers (Overlapping + Partial): zero, one or both badges #}
+{% if obj.standard_profile %}
+    <span class="badge badge-standard">Standard</span>
+    <span class="cell-note">{{ obj.standard_profile.max_visits_month }} visits/mo</span>
+{% endif %}
+{% if obj.premium_profile %}
+    <span class="badge badge-premium">Premium</span>
+    <span class="cell-note">{% if obj.premium_profile.assigned_trainer %}Trainer: {{ obj.premium_profile.assigned_trainer.staff.name }}{% else %}No trainer{% endif %}</span>
+{% endif %}
+{% if not obj.standard_profile and not obj.premium_profile %}<span class="text-muted">–</span>{% endif %}

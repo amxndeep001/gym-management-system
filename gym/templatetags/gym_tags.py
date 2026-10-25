@@ -18,6 +18,13 @@ def get_attr(obj, attr):
 
 
 @register.filter
+def display_value(obj, field):
+    """Like get_attr, but shows a choice field's label (e.g. 'Accessories' for 'Other')."""
+    getter = getattr(obj, f'get_{field}_display', None)
+    return getter() if getter else get_attr(obj, field)
+
+
+@register.filter
 def add_class(field, css_class):
     """Add CSS class to form field."""
     return field.as_widget(attrs={'class': css_class})

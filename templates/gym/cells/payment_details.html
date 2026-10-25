@@ -1,0 +1,5 @@
+{# PAYMENT (Disjoint + Total): exactly one subclass row #}
+{% if obj.cash_details %}Receipt {{ obj.cash_details.receipt_no }}
+{% elif obj.card_details %}{{ obj.card_details.card_type }} ****{{ obj.card_details.card_last4 }}
+{% elif obj.online_details %}{{ obj.online_details.gateway }} &middot; {{ obj.online_details.transaction_id }}
+{% else %}<span class="text-muted">–</span>{% endif %}

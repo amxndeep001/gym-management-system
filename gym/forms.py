@@ -26,10 +26,13 @@ def limit_parent_choices(form, field_name, queryset):
     field.queryset = queryset
 
 
-def subtype_field(placeholder, number=False, choices=None):
+def subtype_field(placeholder, number=False, decimal=False, choices=None):
     if choices:
         return forms.ChoiceField(required=False, choices=[('', '---------')] + choices,
                                  widget=forms.Select(attrs={'class': 'form-select'}))
+    if decimal:
+        return forms.DecimalField(required=False, widget=forms.NumberInput(
+            attrs={'class': 'form-control', 'placeholder': placeholder, 'step': '0.01', 'min': '0'}))
     widget = forms.NumberInput if number else forms.TextInput
     field_class = forms.IntegerField if number else forms.CharField
     return field_class(required=False, widget=widget(attrs={'class': 'form-control', 'placeholder': placeholder}))
@@ -86,6 +89,24 @@ class TotalSpecializationForm(forms.ModelForm):
                     model.objects.filter(pk=obj.pk).delete()
             setattr(self._subtype, self.parent_field, obj)
             self._subtype.save()
+        return obj
+
+
+class PartialSpecializationForm(TotalSpecializationForm):
+    """Superclass form for a Disjoint + Partial hierarchy (Equipment).
+
+    Works like TotalSpecializationForm, except a discriminator value may have no subtype
+    (category 'Other' = Accessories). Such a record is saved without a subtype row, and any
+    row left from its old category is deleted.
+    """
+
+    def save(self, commit=True):
+        if self.cleaned_data[self.discriminator] in self.subtypes:
+            return super().save(commit)
+        with transaction.atomic():
+            obj = forms.ModelForm.save(self)
+            for model, _ in self.subtypes.values():
+                model.objects.filter(pk=obj.pk).delete()
         return obj
 
 
@@ -185,7 +206,19 @@ class MaintenanceStaffForm(forms.ModelForm):
         limit_parent_choices(self, 'staff', Staff.objects.filter(role='Maintenance_Staff', maintenance_profile__isnull=True))
 
 
-class EquipmentForm(forms.ModelForm):
+class EquipmentForm(PartialSpecializationForm):
+    discriminator = 'category'
+    parent_field = 'equipment'
+    subtypes = {
+        'Cardio': (CardioEquipment, ['max_speed', 'incline_levels']),
+        'Strength': (StrengthEquipment, ['weight_stack', 'max_load']),
+    }
+
+    max_speed = subtype_field('Max Speed (km/h)', decimal=True)
+    incline_levels = subtype_field('Incline Levels', number=True)
+    weight_stack = subtype_field('Weight Stack (kg)', decimal=True)
+    max_load = subtype_field('Max Load (kg)', decimal=True)
+
     class Meta:
         model = Equipment
         fields = ['name', 'category', 'branch']
@@ -194,16 +227,6 @@ class EquipmentForm(forms.ModelForm):
             'category': forms.Select(attrs={'class': 'form-select'}),
             'branch': forms.Select(attrs={'class': 'form-select'}),
         }
-
-    def clean_category(self):
-        # Disjoint + Partial: 'Other' has no subtype, and a subtype row must match its category
-        category = self.cleaned_data['category']
-        if self.instance.pk:
-            if category != 'Cardio' and CardioEquipment.objects.filter(pk=self.instance.pk).exists():
-                raise ValidationError('Delete this item\'s Cardio Equipment details before changing its category.')
-            if category != 'Strength' and StrengthEquipment.objects.filter(pk=self.instance.pk).exists():
-                raise ValidationError('Delete this item\'s Strength Equipment details before changing its category.')
-        return category
 
 
 class CardioEquipmentForm(forms.ModelForm):

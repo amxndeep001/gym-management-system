@@ -34,6 +34,7 @@ ENTITY_CONFIG = {
         'form': BranchForm,
         'list_fields': ['branch_id', 'branch_name', 'location', 'phone'],
         'display_name': 'Branches',
+        'singular': 'Branch',
         'icon': 'building',
     },
     'staff': {
@@ -41,48 +42,67 @@ ENTITY_CONFIG = {
         'form': StaffForm,
         'list_fields': ['staff_id', 'name', 'phone', 'salary', 'role', 'branch'],
         'display_name': 'Staff',
+        'singular': 'Staff Member',
         'icon': 'people',
+        'select_related': ['branch', 'trainer_profile', 'receptionist_profile', 'manager_profile',
+                           'maintenance_profile'],
+        'extra_columns': [('Role details', 'gym/cells/staff_role.html')],
     },
     'trainer': {
         'model': Trainer,
         'form': TrainerForm,
         'list_fields': ['staff', 'specialization', 'experience'],
         'display_name': 'Trainers',
-        'icon': 'person-badge',
+        'singular': 'Trainer',
+        'icon': 'person-arms-up',
     },
     'receptionist': {
         'model': Receptionist,
         'form': ReceptionistForm,
         'list_fields': ['staff', 'shift_timing'],
         'display_name': 'Receptionists',
-        'icon': 'person-badge',
+        'singular': 'Receptionist',
+        'icon': 'person-workspace',
     },
     'manager': {
         'model': Manager,
         'form': ManagerForm,
         'list_fields': ['staff', 'authority_level'],
         'display_name': 'Managers',
-        'icon': 'person-badge',
+        'singular': 'Manager',
+        'icon': 'person-gear',
     },
     'maintenance_staff': {
         'model': MaintenanceStaff,
         'form': MaintenanceStaffForm,
         'list_fields': ['staff', 'skill_type'],
         'display_name': 'Maintenance Staff',
-        'icon': 'person-badge',
+        'singular': 'Maintenance Staff Member',
+        'icon': 'wrench-adjustable',
     },
     'equipment': {
         'model': Equipment,
         'form': EquipmentForm,
         'list_fields': ['equipment_id', 'name', 'category', 'branch'],
         'display_name': 'Equipment',
+        'singular': 'Equipment',
         'icon': 'gear',
+        'select_related': ['branch', 'cardio_details', 'strength_details'],
+        'extra_columns': [('Specs', 'gym/cells/equipment_specs.html')],
+        'filter': {
+            'param': 'category',
+            'caption': 'Disjoint + Partial: at most one subclass; Accessories belong to none.',
+            'options': [('Cardio', 'Cardio', Q(category='Cardio')),
+                        ('Strength', 'Strength', Q(category='Strength')),
+                        ('Other', 'Accessories', Q(category='Other'))],
+        },
     },
     'cardio_equipment': {
         'model': CardioEquipment,
         'form': CardioEquipmentForm,
         'list_fields': ['equipment', 'max_speed', 'incline_levels'],
         'display_name': 'Cardio Equipment',
+        'singular': 'Cardio Equipment',
         'icon': 'gear',
     },
     'strength_equipment': {
@@ -90,6 +110,7 @@ ENTITY_CONFIG = {
         'form': StrengthEquipmentForm,
         'list_fields': ['equipment', 'weight_stack', 'max_load'],
         'display_name': 'Strength Equipment',
+        'singular': 'Strength Equipment',
         'icon': 'gear',
     },
     'membership_plan': {
@@ -97,20 +118,33 @@ ENTITY_CONFIG = {
         'form': MembershipPlanForm,
         'list_fields': ['plan_id', 'plan_name', 'duration', 'fee'],
         'display_name': 'Membership Plans',
-        'icon': 'credit-card',
+        'singular': 'Membership Plan',
+        'icon': 'card-checklist',
     },
     'member': {
         'model': Member,
         'form': MemberForm,
         'list_fields': ['member_id', 'name', 'gender', 'dob', 'phone', 'join_date', 'branch', 'plan'],
         'display_name': 'Members',
-        'icon': 'person',
+        'singular': 'Member',
+        'icon': 'person-vcard',
+        'select_related': ['branch', 'plan', 'standard_profile', 'premium_profile__assigned_trainer__staff'],
+        'extra_columns': [('Tier', 'gym/cells/member_tier.html'), ('Status', 'gym/cells/member_status.html')],
+        'filter': {
+            'param': 'tier',
+            'caption': 'Overlapping + Partial: a member can hold both tiers or none, so Standard and Premium overlap.',
+            'options': [('standard', 'Standard', Q(standard_profile__isnull=False)),
+                        ('premium', 'Premium', Q(premium_profile__isnull=False)),
+                        ('both', 'Both', Q(standard_profile__isnull=False, premium_profile__isnull=False)),
+                        ('none', 'No tier', Q(standard_profile__isnull=True, premium_profile__isnull=True))],
+        },
     },
     'standard_member': {
         'model': StandardMember,
         'form': StandardMemberForm,
         'list_fields': ['member', 'max_visits_month'],
         'display_name': 'Standard Members',
+        'singular': 'Standard Member',
         'icon': 'person',
     },
     'premium_member': {
@@ -118,6 +152,7 @@ ENTITY_CONFIG = {
         'form': PremiumMemberForm,
         'list_fields': ['member', 'assigned_trainer', 'priority_diet_access'],
         'display_name': 'Premium Members',
+        'singular': 'Premium Member',
         'icon': 'person',
     },
     'payment': {
@@ -125,13 +160,24 @@ ENTITY_CONFIG = {
         'form': PaymentForm,
         'list_fields': ['payment_id', 'member', 'amount', 'pay_date', 'mode'],
         'display_name': 'Payments',
-        'icon': 'cash',
+        'singular': 'Payment',
+        'icon': 'cash-coin',
+        'select_related': ['member', 'cash_details', 'card_details', 'online_details'],
+        'extra_columns': [('Details', 'gym/cells/payment_details.html')],
+        'filter': {
+            'param': 'mode',
+            'caption': 'Disjoint + Total: every payment is exactly one of Cash, Card or Online.',
+            'options': [('Cash', 'Cash', Q(mode='Cash')),
+                        ('Card', 'Card', Q(mode='Card')),
+                        ('Online', 'Online', Q(mode='Online'))],
+        },
     },
     'cash_payment': {
         'model': CashPayment,
         'form': CashPaymentForm,
         'list_fields': ['payment', 'receipt_no'],
         'display_name': 'Cash Payments',
+        'singular': 'Cash Payment',
         'icon': 'cash',
     },
     'card_payment': {
@@ -139,6 +185,7 @@ ENTITY_CONFIG = {
         'form': CardPaymentForm,
         'list_fields': ['payment', 'card_last4', 'card_type'],
         'display_name': 'Card Payments',
+        'singular': 'Card Payment',
         'icon': 'cash',
     },
     'online_payment': {
@@ -146,6 +193,7 @@ ENTITY_CONFIG = {
         'form': OnlinePaymentForm,
         'list_fields': ['payment', 'transaction_id', 'gateway'],
         'display_name': 'Online Payments',
+        'singular': 'Online Payment',
         'icon': 'cash',
     },
     'locker': {
@@ -153,6 +201,7 @@ ENTITY_CONFIG = {
         'form': LockerForm,
         'list_fields': ['locker_id', 'member', 'locker_no'],
         'display_name': 'Lockers',
+        'singular': 'Locker',
         'icon': 'lock',
     },
     'gym_class': {
@@ -160,34 +209,39 @@ ENTITY_CONFIG = {
         'form': GymClassForm,
         'list_fields': ['class_id', 'trainer', 'name', 'capacity'],
         'display_name': 'Gym Classes',
-        'icon': 'calendar',
+        'singular': 'Gym Class',
+        'icon': 'bicycle',
     },
     'class_schedule': {
         'model': ClassSchedule,
         'form': ClassScheduleForm,
         'list_fields': ['schedule_id', 'gym_class', 'room', 'start_time', 'end_time'],
         'display_name': 'Class Schedules',
-        'icon': 'calendar',
+        'singular': 'Class Schedule',
+        'icon': 'calendar-week',
     },
     'attendance': {
         'model': Attendance,
         'form': AttendanceForm,
         'list_fields': ['attendance_id', 'member', 'schedule', 'date', 'in_time', 'status'],
         'display_name': 'Attendance',
-        'icon': 'check-circle',
+        'singular': 'Attendance Record',
+        'icon': 'check2-circle',
     },
     'feedback': {
         'model': Feedback,
         'form': FeedbackForm,
         'list_fields': ['feedback_id', 'member', 'rating', 'comments', 'date'],
         'display_name': 'Feedback',
-        'icon': 'chat',
+        'singular': 'Feedback',
+        'icon': 'chat-heart',
     },
     'workout_plan': {
         'model': WorkoutPlan,
         'form': WorkoutPlanForm,
         'list_fields': ['workout_id', 'member', 'plan_name', 'duration', 'goal'],
         'display_name': 'Workout Plans',
+        'singular': 'Workout Plan',
         'icon': 'heart-pulse',
     },
     'diet_plan': {
@@ -195,25 +249,40 @@ ENTITY_CONFIG = {
         'form': DietPlanForm,
         'list_fields': ['diet_id', 'trainer', 'member', 'calories'],
         'display_name': 'Diet Plans',
-        'icon': 'heart-pulse',
+        'singular': 'Diet Plan',
+        'icon': 'egg-fried',
     },
     'equipment_maintenance': {
         'model': EquipmentMaintenance,
         'form': EquipmentMaintenanceForm,
         'list_fields': ['maintenance_id', 'equipment', 'date', 'cost'],
         'display_name': 'Equipment Maintenance',
+        'singular': 'Maintenance Record',
         'icon': 'tools',
     },
 }
 
-# Subtypes entered in their superclass form (StaffForm / PaymentForm / MemberForm) are created
-# and deleted there, so their own screens only allow viewing and editing.
-for key in ('trainer', 'receptionist', 'manager', 'maintenance_staff'):
-    ENTITY_CONFIG[key]['managed_by'] = 'staff'
-for key in ('cash_payment', 'card_payment', 'online_payment'):
-    ENTITY_CONFIG[key]['managed_by'] = 'payment'
-for key in ('standard_member', 'premium_member'):
-    ENTITY_CONFIG[key]['managed_by'] = 'member'
+# Subtypes entered in their superclass form (Staff / Equipment / Member / Payment) are created and
+# deleted there, so their own screens only allow viewing and editing. Each entry gives the superclass,
+# the query string that pre-selects the subtype on the superclass's create form, and the hint shown
+# instead of an Add button.
+MANAGED_SUBTYPES = {
+    'trainer': ('staff', 'role=Trainer', 'To add a Trainer, add a Staff member with role Trainer.'),
+    'receptionist': ('staff', 'role=Receptionist', 'To add a Receptionist, add a Staff member with role Receptionist.'),
+    'manager': ('staff', 'role=Manager', 'To add a Manager, add a Staff member with role Manager.'),
+    'maintenance_staff': ('staff', 'role=Maintenance_Staff',
+                          'To add Maintenance Staff, add a Staff member with role Maintenance Staff.'),
+    'cardio_equipment': ('equipment', 'category=Cardio', 'To add Cardio Equipment, add Equipment with category Cardio.'),
+    'strength_equipment': ('equipment', 'category=Strength',
+                           'To add Strength Equipment, add Equipment with category Strength.'),
+    'standard_member': ('member', 'is_standard=on', 'To add a Standard Member, add a Member with the Standard tier ticked.'),
+    'premium_member': ('member', 'is_premium=on', 'To add a Premium Member, add a Member with the Premium tier ticked.'),
+    'cash_payment': ('payment', 'mode=Cash', 'To record a Cash Payment, add a Payment with mode Cash.'),
+    'card_payment': ('payment', 'mode=Card', 'To record a Card Payment, add a Payment with mode Card.'),
+    'online_payment': ('payment', 'mode=Online', 'To record an Online Payment, add a Payment with mode Online.'),
+}
+for key, (parent, query, hint) in MANAGED_SUBTYPES.items():
+    ENTITY_CONFIG[key].update(managed_by=parent, create_query=query, create_hint=hint)
 
 # Top navbar: one entry per section. Sections with `items` open /section/<key>/, a page of
 # sub-category cards; `subtypes` adds a second row of cards for a specialization's subclasses.
@@ -282,8 +351,25 @@ def get_queryset(entity_key):
     config = get_entity_config(entity_key)
     if config:
         model = config['model']
-        return model.objects.select_related().all()
+        return model.objects.select_related(*config.get('select_related', [])).all()
     return None
+
+
+def apply_list_filter(config, queryset, request):
+    """Subtype filter buttons for a superclass list (e.g. ?mode=Card), each with its record count."""
+    spec = config.get('filter')
+    if not spec:
+        return queryset, None
+    selected = request.GET.get(spec['param'], '')
+    counts = config['model'].objects.aggregate(
+        all=Count('pk'), **{value: Count('pk', filter=q) for value, _, q in spec['options']})
+    values = [value for value, _, _ in spec['options']]
+    buttons = [{'value': '', 'label': 'All', 'count': counts['all'], 'active': selected not in values}]
+    for value, label, q in spec['options']:
+        buttons.append({'value': value, 'label': label, 'count': counts[value], 'active': selected == value})
+        if selected == value:
+            queryset = queryset.filter(q)
+    return queryset, {'param': spec['param'], 'caption': spec['caption'], 'buttons': buttons}
 
 
 def protected_message(obj, error):
@@ -354,7 +440,7 @@ def dashboard(request):
     }
 
     if action == 'list':
-        context['object_list'] = get_queryset(entity_key)
+        context['object_list'], context['list_filter'] = apply_list_filter(config, get_queryset(entity_key), request)
 
     elif action == 'create':
         if request.method == 'POST':
@@ -368,7 +454,9 @@ def dashboard(request):
                     messages.error(request, f'Error creating record: {str(e)}')
             context['form'] = form
         else:
-            context['form'] = config['form']()
+            # Query parameters naming a form field pre-fill it, e.g. ?role=Trainer from a subtype page
+            fields = config['form'].base_fields
+            context['form'] = config['form'](initial={k: v for k, v in request.GET.items() if k in fields})
 
     elif action == 'edit':
         obj = get_object(entity_key, pk)
@@ -545,12 +633,23 @@ def section(request, section_key):
     if not section or not section['items']:
         raise Http404('Unknown section')
     subtypes = section.get('subtypes')
-    return render(request, 'gym/section.html', {
+    context = {
         'section': section,
         'cards': entity_cards(section['items'], counts=True),
         'subtype_title': subtypes['title'] if subtypes else None,
         'subtype_cards': entity_cards(subtypes['items'], counts=True) if subtypes else None,
-    })
+    }
+    if section_key == 'equipment':
+        today = date.today()
+        context['equipment_stats'] = Equipment.objects.aggregate(
+            total=Count('pk'),
+            cardio=Count('pk', filter=Q(category='Cardio')),
+            strength=Count('pk', filter=Q(category='Strength')),
+            accessories=Count('pk', filter=Q(category='Other')),
+        )
+        context['equipment_stats']['maintenance_cost'] = EquipmentMaintenance.objects.filter(
+            date__year=today.year, date__month=today.month).aggregate(total=Sum('cost'))['total'] or 0
+    return render(request, 'gym/section.html', context)
 
 
 @login_required

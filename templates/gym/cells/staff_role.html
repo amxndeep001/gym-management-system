@@ -1,0 +1,6 @@
+{# STAFF (Disjoint + Total): the subclass row matching the role #}
+{% if obj.trainer_profile %}{{ obj.trainer_profile.specialization }} &middot; {{ obj.trainer_profile.experience }} yr{{ obj.trainer_profile.experience|pluralize }}
+{% elif obj.receptionist_profile %}{{ obj.receptionist_profile.shift_timing }} shift
+{% elif obj.manager_profile %}{{ obj.manager_profile.authority_level }} authority
+{% elif obj.maintenance_profile %}{{ obj.maintenance_profile.skill_type }}
+{% else %}<span class="text-muted">–</span>{% endif %}
