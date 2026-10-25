@@ -1,7 +1,127 @@
 {% extends 'gym/app_base.html' %}
+{% load humanize %}
 
 {% block title %}Home - Gym Management System{% endblock %}
 
+{% block hero %}
+<section class="hero">
+    <div class="container-fluid px-3 px-lg-4">
+        <p class="hero-date"><i class="bi bi-calendar3 me-2"></i>{{ today|date:"l, d F Y" }}</p>
+        <h1 class="hero-title">Welcome back, <span class="text-accent">{{ user.username }}</span></h1>
+        <p class="hero-lead">Here's how your gym is doing today.</p>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'dashboard' %}?entity=member&action=create" class="btn btn-primary btn-lg">
+                <i class="bi bi-person-plus me-2"></i>Add Member
+            </a>
+            <a href="{% url 'dashboard' %}?entity=payment&action=create" class="btn btn-outline-light btn-lg">
+                <i class="bi bi-cash-coin me-2"></i>Record Payment
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
 {% block main %}
-<h2>Welcome back, {{ user.username }}</h2>
+<!-- KPI row -->
+<div class="row g-3 mb-4 kpi-row">
+    {% for kpi in kpis %}
+        <div class="col-6 col-xl-3">
+            <div class="kpi-card">
+                <span class="kpi-icon"><i class="bi bi-{{ kpi.icon }}"></i></span>
+                <div class="kpi-body">
+                    <span class="kpi-label">{{ kpi.label }}</span>
+                    <span class="kpi-value">
+                        {% if kpi.rupees %}₹{{ kpi.value|floatformat:0|intcomma }}
+                        {% elif kpi.rating %}{% if kpi.value %}{{ kpi.value|floatformat:1 }}<small>/5</small>{% else %}–{% endif %}
+                        {% else %}{{ kpi.value|intcomma }}{% endif %}
+                    </span>
+                    <span class="kpi-note">
+                        {% if kpi.trend %}
+                            <span class="trend {% if kpi.trend.up %}trend-up{% else %}trend-down{% endif %}">
+                                <i class="bi bi-arrow-{% if kpi.trend.up %}up{% else %}down{% endif %}-right"></i>{{ kpi.trend.pct }}%
+                            </span>
+                        {% endif %}
+                        {{ kpi.note }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- Quick access -->
+<h2 class="subsection-title mb-3">Quick Access</h2>
+<div class="row g-3 mb-4">
+    {% for tile in tiles %}
+        <div class="col-sm-6 col-xl-4">
+            <a href="{% url 'section' tile.key %}" class="quick-tile">
+                <span class="category-icon"><i class="bi bi-{{ tile.icon }}"></i></span>
+                <span class="quick-tile-body">
+                    <span class="category-name">{{ tile.label }}</span>
+                    <span class="quick-tile-desc">{{ tile.description }}</span>
+                    <span class="quick-tile-counts">
+                        {% for item in tile.counts %}<span><strong>{{ item.count|intcomma }}</strong> {{ item.label }}</span>{% endfor %}
+                    </span>
+                </span>
+                <i class="bi bi-arrow-right category-arrow"></i>
+            </a>
+        </div>
+    {% endfor %}
+</div>
+
+<div class="row g-3">
+    <!-- Today's classes -->
+    <div class="col-lg-6">
+        <div class="card list-card h-100">
+            <div class="list-card-header">
+                <h2 class="h6 mb-0"><i class="bi bi-calendar-week me-2"></i>Today's Classes</h2>
+                <a href="{% url 'dashboard' %}?entity=class_schedule&action=list" class="small">All schedules</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Class</th><th>Trainer</th><th>Room</th><th>Time</th></tr></thead>
+                    <tbody>
+                        {% for item in classes %}
+                            <tr class="{% if item.state == 'done' %}text-muted{% endif %}">
+                                <td class="fw-semibold">{{ item.slot.gym_class.name }}
+                                    {% if item.state == 'live' %}<span class="badge badge-live ms-1">Now</span>{% endif %}</td>
+                                <td>{{ item.slot.gym_class.trainer.staff.name }}</td>
+                                <td>{{ item.slot.room }}</td>
+                                <td class="text-nowrap">{{ item.slot.start_time|time:"H:i" }}–{{ item.slot.end_time|time:"H:i" }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="4" class="text-muted">No classes scheduled.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Expiring memberships -->
+    <div class="col-lg-6">
+        <div class="card list-card h-100">
+            <div class="list-card-header">
+                <h2 class="h6 mb-0"><i class="bi bi-hourglass-split me-2"></i>Memberships Expiring Soon</h2>
+                <span class="small text-muted">Next 15 days</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Member</th><th>Plan</th><th>Expires</th><th class="text-end">Left</th></tr></thead>
+                    <tbody>
+                        {% for member, days in expiring %}
+                            <tr>
+                                <td><a href="{% url 'member_profile' member.pk %}" class="fw-semibold">{{ member.name }}</a></td>
+                                <td>{{ member.plan.plan_name }}</td>
+                                <td class="text-nowrap">{{ member.expiry_date|date:"d M Y" }}</td>
+                                <td class="text-end"><span class="badge {% if days <= 3 %}badge-expired{% else %}badge-warning{% endif %}">{% if days == 0 %}Today{% else %}{{ days }} day{{ days|pluralize }}{% endif %}</span></td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="4" class="text-muted">No memberships expire in the next 15 days.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -1,4 +1,5 @@
-from datetime import date
+import calendar
+from datetime import date, datetime, timedelta
 
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
@@ -11,6 +12,7 @@ from django.db.models import Avg, Count, ProtectedError, Q, Sum
 from django.db.models.functions import TruncMonth
 
 from .models import (
+    add_months,
     Branch, Staff, Trainer, Receptionist, Manager, MaintenanceStaff,
     Equipment, CardioEquipment, StrengthEquipment,
     MembershipPlan, Member, StandardMember, PremiumMember,
@@ -622,9 +624,67 @@ def analytics(request):
     })
 
 
+def trend(current, previous):
+    """Percent change for a KPI's "vs last month" arrow, or None when there is nothing to compare to."""
+    if not previous:
+        return None
+    change = (float(current) - float(previous)) / float(previous) * 100
+    return {'pct': abs(round(change)), 'up': change >= 0}
+
+
 @login_required
 def home(request):
-    return render(request, 'gym/home.html')
+    today = date.today()
+    last_month_day = add_months(today, -1)
+    this_month, last_month = today.replace(day=1), last_month_day.replace(day=1)
+    members = list(Member.objects.select_related('plan'))
+    attended = Attendance.objects.filter(status__in=['Present', 'Late'])
+
+    active_now = sum(m.is_active for m in members)
+    active_then = sum(m.join_date <= last_month_day <= m.expiry_date for m in members)
+    # Month to date, compared with the same days of last month
+    revenue_now = Payment.objects.filter(pay_date__range=(this_month, today)).aggregate(t=Sum('amount'))['t'] or 0
+    revenue_then = Payment.objects.filter(pay_date__range=(last_month, last_month_day)) \
+                          .aggregate(t=Sum('amount'))['t'] or 0
+    checkins_today = attended.filter(date=today).count()
+    checkins_last_month = attended.filter(date__range=(last_month, this_month - timedelta(days=1))).count()
+    daily_avg = checkins_last_month / calendar.monthrange(last_month.year, last_month.month)[1]
+    rating = Feedback.objects.aggregate(avg=Avg('rating'), n=Count('pk'))
+
+    kpis = [
+        {'label': 'Active Members', 'icon': 'people-fill', 'value': active_now,
+         'trend': trend(active_now, active_then), 'note': 'vs last month'},
+        {'label': 'Revenue This Month', 'icon': 'currency-rupee', 'value': revenue_now, 'rupees': True,
+         'trend': trend(revenue_now, revenue_then), 'note': 'vs same days last month'},
+        {'label': "Today's Check-ins", 'icon': 'door-open-fill', 'value': checkins_today,
+         'trend': trend(checkins_today, daily_avg), 'note': "vs last month's daily average"},
+        {'label': 'Avg Rating', 'icon': 'star-fill', 'value': rating['avg'], 'rating': True,
+         'note': f"from {rating['n']} review{'s' if rating['n'] != 1 else ''}"},
+    ]
+
+    # Schedules have a time slot but no weekday, so every slot runs daily
+    now = datetime.now().time()
+    classes = []
+    for slot in ClassSchedule.objects.select_related('gym_class__trainer__staff').order_by('start_time'):
+        state = 'done' if slot.end_time <= now else 'live' if slot.start_time <= now else 'upcoming'
+        classes.append({'slot': slot, 'state': state})
+
+    soon = today + timedelta(days=15)
+    expiring = sorted(((m, (m.expiry_date - today).days) for m in members if today <= m.expiry_date <= soon),
+                      key=lambda pair: pair[1])
+
+    tiles = []
+    for section in NAV_SECTIONS:
+        if section['items']:
+            tiles.append({**section, 'counts': entity_cards(section['items'], counts=True)})
+
+    return render(request, 'gym/home.html', {
+        'today': today,
+        'kpis': kpis,
+        'tiles': tiles,
+        'classes': classes,
+        'expiring': expiring,
+    })
 
 
 @login_required
