@@ -1,3 +1,5 @@
+from datetime import date
+
 from django import template
 
 register = template.Library()
@@ -21,7 +23,10 @@ def get_attr(obj, attr):
 def display_value(obj, field):
     """Like get_attr, but shows a choice field's label (e.g. 'Accessories' for 'Other')."""
     getter = getattr(obj, f'get_{field}_display', None)
-    return getter() if getter else get_attr(obj, field)
+    value = getter() if getter else get_attr(obj, field)
+    if isinstance(value, date):
+        return value.strftime('%d %b %Y').replace(' ', chr(160))  # non-breaking spaces keep a date on one line
+    return value
 
 
 @register.filter

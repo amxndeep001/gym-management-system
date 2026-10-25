@@ -4,16 +4,16 @@
 {% block title %}{{ member.name }} - Gym Management System{% endblock %}
 
 {% block main %}
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+<div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-person me-2 text-primary"></i>{{ member.name }}</h2>
+        <h1 class="page-title"><span class="page-title-icon"><i class="bi bi-person"></i></span>{{ member.name }}</h1>
         <p class="text-muted mb-0">Member #{{ member.member_id }} &middot; {{ member.get_gender_display }} &middot; DOB {{ member.dob|date:"d M Y" }} &middot; {{ member.phone }}</p>
     </div>
     <div class="d-flex gap-2">
         <a href="{% url 'dashboard' %}?entity=member&action=edit&pk={{ member.pk }}" class="btn btn-outline-primary btn-sm">
             <i class="bi bi-pencil me-1"></i>Edit
         </a>
-        <a href="{% url 'dashboard' %}?entity=member&action=list" class="btn btn-secondary btn-sm">
+        <a href="{% url 'dashboard' %}?entity=member&action=list" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left me-1"></i>Members
         </a>
     </div>
@@ -22,8 +22,8 @@
 <div class="row g-3 mb-4">
     <!-- Membership: Member -> Branch, Member -> Membership_Plan -->
     <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-light fw-semibold">Membership</div>
+        <div class="card profile-card h-100">
+            <div class="card-header fw-semibold">Membership</div>
             <div class="card-body">
                 <dl class="row mb-0 small">
                     <dt class="col-5">Branch</dt><dd class="col-7">{{ member.branch.branch_name }}<br><span class="text-muted">{{ member.branch.location }}</span></dd>
@@ -32,7 +32,7 @@
                     <dt class="col-5">Expires</dt>
                     <dd class="col-7 mb-0">
                         {{ member.expiry_date|date:"d M Y" }}
-                        {% if member.is_active %}<span class="badge bg-success ms-1">Active</span>{% else %}<span class="badge bg-danger ms-1">Expired</span>{% endif %}
+                        {% if member.is_active %}<span class="badge badge-active ms-1">Active</span>{% else %}<span class="badge badge-expired ms-1">Expired</span>{% endif %}
                     </dd>
                 </dl>
             </div>
@@ -41,14 +41,14 @@
 
     <!-- Tier(s): MEMBER specialization (overlapping + partial) -->
     <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-light fw-semibold">Tier</div>
+        <div class="card profile-card h-100">
+            <div class="card-header fw-semibold">Tier</div>
             <div class="card-body small">
                 {% if standard %}
-                    <div class="mb-2"><span class="badge bg-primary">Standard</span> up to {{ standard.max_visits_month }} visits / month</div>
+                    <div class="mb-2"><span class="badge badge-standard">Standard</span> up to {{ standard.max_visits_month }} visits / month</div>
                 {% endif %}
                 {% if premium %}
-                    <div class="mb-1"><span class="badge" style="background:#fd7e14">Premium</span>
+                    <div class="mb-1"><span class="badge badge-premium">Premium</span>
                         {% if premium.priority_diet_access %}<span class="text-muted">priority diet access</span>{% endif %}
                     </div>
                     <div>Assigned trainer:
@@ -66,11 +66,11 @@
 
     <!-- Locker: 1:1 -->
     <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-light fw-semibold">Locker</div>
+        <div class="card profile-card h-100">
+            <div class="card-header fw-semibold">Locker</div>
             <div class="card-body small">
                 {% if locker %}
-                    <div class="fs-4 fw-bold"><i class="bi bi-lock me-1 text-primary"></i>{{ locker.locker_no }}</div>
+                    <div class="fs-4 fw-bold"><i class="bi bi-lock me-1 text-accent"></i>{{ locker.locker_no }}</div>
                     <div class="text-muted">Locker ID {{ locker.locker_id }}</div>
                 {% else %}
                     <span class="text-muted">No locker assigned</span>
@@ -81,8 +81,8 @@
 </div>
 
 <!-- Payments: Member 1:N Payment, with its disjoint subtype -->
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-light d-flex justify-content-between">
+<div class="card profile-card mb-4">
+    <div class="card-header d-flex justify-content-between">
         <span class="fw-semibold">Payments ({{ payments|length }})</span>
         <span class="small text-muted">Total ₹{{ payment_total|floatformat:0|intcomma }}</span>
     </div>
@@ -90,7 +90,7 @@
         {% if payments %}
             <div class="table-responsive">
                 <table class="table table-sm mb-0">
-                    <thead class="table-light"><tr><th class="ps-3">ID</th><th>Date</th><th>Amount</th><th>Mode</th><th>Details</th></tr></thead>
+                    <thead><tr><th class="ps-3">ID</th><th>Date</th><th>Amount</th><th>Mode</th><th>Details</th></tr></thead>
                     <tbody>
                         {% for p in payments %}
                             <tr>
@@ -113,13 +113,13 @@
 </div>
 
 <!-- Attendance: Member M:N Class_Schedule through Attendance -->
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-light fw-semibold">Attendance ({{ attendance|length }})</div>
+<div class="card profile-card mb-4">
+    <div class="card-header fw-semibold">Attendance ({{ attendance|length }})</div>
     <div class="card-body p-0">
         {% if attendance %}
             <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
                 <table class="table table-sm mb-0">
-                    <thead class="table-light sticky-top"><tr><th class="ps-3">Date</th><th>Class</th><th>Room</th><th>Slot</th><th>In time</th><th>Status</th></tr></thead>
+                    <thead class="sticky-top"><tr><th class="ps-3">Date</th><th>Class</th><th>Room</th><th>Slot</th><th>In time</th><th>Status</th></tr></thead>
                     <tbody>
                         {% for a in attendance %}
                             <tr>
@@ -129,7 +129,7 @@
                                 <td>{{ a.schedule.start_time|time:"H:i" }}-{{ a.schedule.end_time|time:"H:i" }}</td>
                                 <td>{{ a.in_time|time:"H:i" }}</td>
                                 <td>
-                                    <span class="badge {% if a.status == 'Present' %}bg-success{% elif a.status == 'Late' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ a.status }}</span>
+                                    <span class="badge badge-{{ a.status|lower }}">{{ a.status }}</span>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -143,8 +143,8 @@
 <div class="row g-3">
     <!-- Workout plans: Member 1:N Workout_Plan -->
     <div class="col-md-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-light fw-semibold">Workout plans ({{ workout_plans|length }})</div>
+        <div class="card profile-card h-100">
+            <div class="card-header fw-semibold">Workout plans ({{ workout_plans|length }})</div>
             <ul class="list-group list-group-flush small">
                 {% for w in workout_plans %}
                     <li class="list-group-item"><strong>{{ w.plan_name }}</strong> &middot; {{ w.duration }} days &middot; goal: {{ w.goal }}<br><span class="text-muted">{{ w.details }}</span></li>
@@ -156,8 +156,8 @@
     </div>
     <!-- Diet plans: Member 1:N Diet_Plan N:1 Trainer -->
     <div class="col-md-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-light fw-semibold">Diet plans ({{ diet_plans|length }})</div>
+        <div class="card profile-card h-100">
+            <div class="card-header fw-semibold">Diet plans ({{ diet_plans|length }})</div>
             <ul class="list-group list-group-flush small">
                 {% for d in diet_plans %}
                     <li class="list-group-item"><strong>{{ d.calories }} kcal</strong> &middot; by {{ d.trainer.staff.name }}<br><span class="text-muted">{{ d.details }}</span></li>
@@ -169,8 +169,8 @@
     </div>
     <!-- Feedback: Member 1:N Feedback -->
     <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light fw-semibold">Feedback ({{ feedback|length }})</div>
+        <div class="card profile-card">
+            <div class="card-header fw-semibold">Feedback ({{ feedback|length }})</div>
             <ul class="list-group list-group-flush small">
                 {% for f in feedback %}
                     <li class="list-group-item">

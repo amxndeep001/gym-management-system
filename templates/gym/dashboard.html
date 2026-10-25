@@ -77,7 +77,7 @@
                                         {% for obj in object_list %}
                                             <tr>
                                                 {% for field in config.list_fields %}
-                                                    <td>
+                                                    <td{% if field in 'comments details goal' %} class="wrap-cell"{% endif %}>
                                                         {% with value=obj|display_value:field %}
                                                             {% if entity_key == 'member' and field == 'name' %}
                                                                 <a href="{% url 'member_profile' obj.pk %}" class="fw-semibold">{{ value }}</a>

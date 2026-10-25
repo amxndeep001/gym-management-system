@@ -56,7 +56,7 @@ ENTITY_CONFIG = {
         'list_fields': ['staff', 'specialization', 'experience'],
         'display_name': 'Trainers',
         'singular': 'Trainer',
-        'icon': 'person-arms-up',
+        'icon': 'person-badge',
     },
     'receptionist': {
         'model': Receptionist,

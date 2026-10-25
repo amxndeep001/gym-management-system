@@ -1,6 +1,14 @@
 // Main JavaScript for Gym Management System
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Navbar turns translucent with a blur once the page scrolls
+    var navbar = document.getElementById('gym-navbar');
+    if (navbar) {
+        var onScroll = function() { navbar.classList.toggle('scrolled', window.scrollY > 8); };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+    }
+
     // Initialize tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
