@@ -573,6 +573,29 @@ def month_starts(today, count):
     return months[::-1]
 
 
+def gym_progress(today, count=12):
+    """Gym Progress chart: cumulative members and revenue per month for the last `count` months.
+
+    Members are counted by join month and accumulated on top of everyone who joined earlier;
+    months with no joins or payments stay at 0.
+    """
+    months = month_starts(today, count)
+    index = {m: i for i, m in enumerate(months)}
+    joined, revenue = [0] * count, [0.0] * count
+    for row in (Member.objects.filter(join_date__gte=months[0]).annotate(month=TruncMonth('join_date'))
+                .values('month').annotate(n=Count('member_id'))):
+        joined[index[row['month']]] = row['n']
+    for row in (Payment.objects.filter(pay_date__gte=months[0]).annotate(month=TruncMonth('pay_date'))
+                .values('month').annotate(total=Sum('amount'))):
+        revenue[index[row['month']]] = float(row['total'])
+    total = Member.objects.filter(join_date__lt=months[0]).count()
+    members = []
+    for n in joined:
+        total += n
+        members.append(total)
+    return {'labels': [m.strftime('%b %Y') for m in months], 'members': members, 'revenue': revenue}
+
+
 @login_required
 def analytics(request):
     today = date.today()
@@ -612,6 +635,7 @@ def analytics(request):
     )
 
     charts = {
+        'progress': gym_progress(today),
         'revenue': {'labels': [m.strftime('%b %Y') for m in months], 'series': revenue},
         'plans': {'labels': [p.plan_name for p in plans], 'data': [p.n for p in plans]},
         'tiers': {'labels': ['Standard only', 'Premium only', 'Both', 'No tier'],
@@ -684,6 +708,7 @@ def home(request):
         'tiles': tiles,
         'classes': classes,
         'expiring': expiring,
+        'progress': gym_progress(today),
     })
 
 

@@ -4,64 +4,51 @@
 {% block title %}Analytics - Gym Management System{% endblock %}
 
 {% block main %}
-<div class="mb-4">
-    <h2 class="mb-1"><i class="bi bi-bar-chart-line me-2 text-primary"></i>Analytics</h2>
+<div class="page-header mb-4">
+    <h1 class="page-title"><span class="page-title-icon"><i class="bi bi-bar-chart-line"></i></span>Analytics</h1>
     <p class="text-muted mb-0">All branches</p>
 </div>
+
+{% include 'gym/partials/progress_chart.html' with progress=charts.progress %}
 
 <!-- KPI cards -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-xl">
-        <div class="card shadow-sm h-100"><div class="card-body">
-            <div class="text-muted small">Total members</div>
-            <div class="fs-3 fw-bold">{{ kpis.total_members }}</div>
-        </div></div>
+        <div class="stat-card"><span class="stat-label">Total members</span><span class="stat-value">{{ kpis.total_members }}</span></div>
     </div>
     <div class="col-6 col-xl">
-        <div class="card shadow-sm h-100"><div class="card-body">
-            <div class="text-muted small">Active members</div>
-            <div class="fs-3 fw-bold">{{ kpis.active_members }}</div>
-        </div></div>
+        <div class="stat-card"><span class="stat-label">Active members</span><span class="stat-value">{{ kpis.active_members }}</span></div>
     </div>
     <div class="col-6 col-xl">
-        <div class="card shadow-sm h-100"><div class="card-body">
-            <div class="text-muted small">Revenue this month</div>
-            <div class="fs-3 fw-bold">₹{{ kpis.revenue_this_month|floatformat:0|intcomma }}</div>
-        </div></div>
+        <div class="stat-card"><span class="stat-label">Revenue this month</span><span class="stat-value">₹{{ kpis.revenue_this_month|floatformat:0|intcomma }}</span></div>
     </div>
     <div class="col-6 col-xl">
-        <div class="card shadow-sm h-100"><div class="card-body">
-            <div class="text-muted small">Today's attendance</div>
-            <div class="fs-3 fw-bold">{{ kpis.attendance_today }}</div>
-        </div></div>
+        <div class="stat-card"><span class="stat-label">Today's attendance</span><span class="stat-value">{{ kpis.attendance_today }}</span></div>
     </div>
     <div class="col-12 col-xl">
-        <div class="card shadow-sm h-100"><div class="card-body">
-            <div class="text-muted small">Average rating</div>
-            <div class="fs-3 fw-bold">{% if kpis.avg_rating %}{{ kpis.avg_rating|floatformat:1 }} <span class="fs-6 text-muted">/ 5</span>{% else %}-{% endif %}</div>
-        </div></div>
+        <div class="stat-card"><span class="stat-label">Average rating</span><span class="stat-value">{% if kpis.avg_rating %}{{ kpis.avg_rating|floatformat:1 }}<small> / 5</small>{% else %}-{% endif %}</span></div>
     </div>
 </div>
 
 <!-- Charts -->
 <div class="row g-3 mb-4">
     <div class="col-12">
-        <div class="card shadow-sm"><div class="card-body">
-            <h6 class="card-title">Monthly revenue by payment mode</h6>
-            <div style="height: 280px"><canvas id="revenueChart"></canvas></div>
+        <div class="card chart-card"><div class="card-body">
+            <h2 class="chart-title">Monthly revenue by payment mode</h2>
+            <div class="chart-box"><canvas id="revenueChart"></canvas></div>
         </div></div>
     </div>
     <div class="col-md-6">
-        <div class="card shadow-sm h-100"><div class="card-body">
-            <h6 class="card-title">Members per membership plan</h6>
-            <div style="height: 260px"><canvas id="plansChart"></canvas></div>
+        <div class="card chart-card h-100"><div class="card-body">
+            <h2 class="chart-title">Members per membership plan</h2>
+            <div class="chart-box"><canvas id="plansChart"></canvas></div>
         </div></div>
     </div>
     <div class="col-md-6">
-        <div class="card shadow-sm h-100"><div class="card-body">
-            <h6 class="card-title mb-0">Member tiers</h6>
-            <p class="small text-muted mb-2">MEMBER specialization: overlapping (both) + partial (no tier)</p>
-            <div style="height: 236px"><canvas id="tiersChart"></canvas></div>
+        <div class="card chart-card h-100"><div class="card-body">
+            <h2 class="chart-title">Member tiers</h2>
+            <p class="chart-subtitle">MEMBER specialization: overlapping (both) + partial (no tier)</p>
+            <div class="chart-box chart-box-sm"><canvas id="tiersChart"></canvas></div>
         </div></div>
     </div>
 </div>
@@ -70,36 +57,42 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% include 'gym/partials/chart_scripts.html' %}
 <script>
     const data = JSON.parse(document.getElementById('chart-data').textContent);
-    const palette = ['#0d6efd', '#20c997', '#fd7e14', '#6f42c1', '#dc3545'];
-    const rupees = value => '₹' + Number(value).toLocaleString('en-IN');
-    const seriesDatasets = series => Object.entries(series).map(([label, values], i) => ({
-        label, data: values, backgroundColor: palette[i % palette.length],
-    }));
     const integerAxis = { beginAtZero: true, ticks: { precision: 0 } };
-    Chart.defaults.maintainAspectRatio = false;
+    const bar = { borderRadius: 4, borderSkipped: 'start', maxBarThickness: 36 };
 
+    renderProgressChart(document.getElementById('progressChart'), data.progress);
+
+    // Payment modes keep fixed colours: Cash, Card, Online
     new Chart(document.getElementById('revenueChart'), {
         type: 'bar',
-        data: { labels: data.revenue.labels, datasets: seriesDatasets(data.revenue.series) },
+        data: {
+            labels: data.revenue.labels,
+            datasets: Object.entries(data.revenue.series).map(([label, values], i) => ({
+                ...bar, label, data: values, backgroundColor: GYM_SERIES[i], borderColor: '#fff', borderWidth: 1,
+            })),
+        },
         options: {
-            scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: rupees } } },
-            plugins: { tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${rupees(ctx.parsed.y)}` } } },
+            interaction: { mode: 'index', intersect: false },
+            scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { callback: rupees } } },
+            plugins: { tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${rupees(ctx.parsed.y)}` } } },
         },
     });
 
     new Chart(document.getElementById('plansChart'), {
         type: 'bar',
-        data: { labels: data.plans.labels, datasets: [{ label: 'Members', data: data.plans.data, backgroundColor: palette[0] }] },
-        options: { scales: { y: integerAxis }, plugins: { legend: { display: false } } },
+        data: { labels: data.plans.labels, datasets: [{ ...bar, label: 'Members', data: data.plans.data, backgroundColor: GYM_COLORS.accent }] },
+        options: { scales: { x: { grid: { display: false } }, y: integerAxis }, plugins: { legend: { display: false } } },
     });
 
+    // Same tier colours as the badges: Standard blue, Premium gold
     new Chart(document.getElementById('tiersChart'), {
         type: 'doughnut',
-        data: { labels: data.tiers.labels, datasets: [{ data: data.tiers.data, backgroundColor: ['#0d6efd', '#fd7e14', '#6f42c1', '#adb5bd'] }] },
-        options: { plugins: { legend: { position: 'right' } } },
+        data: { labels: data.tiers.labels, datasets: [{ data: data.tiers.data, borderColor: '#fff', borderWidth: 2,
+                backgroundColor: [GYM_COLORS.blue, GYM_COLORS.amber, GYM_COLORS.teal, GYM_COLORS.grey] }] },
+        options: { cutout: '62%', plugins: { legend: { position: 'right' } } },
     });
 </script>
 {% endblock %}

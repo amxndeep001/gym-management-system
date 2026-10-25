@@ -1,0 +1,11 @@
+{# Gym Progress line chart; pass `progress` from views.gym_progress(). Needs charts.js (see partials/chart_scripts.html). #}
+<div class="card chart-card mb-4">
+    <div class="card-body">
+        <div class="chart-card-head">
+            <h2 class="chart-title">Gym Progress – Last 12 Months</h2>
+            <p class="chart-subtitle">Total members who had joined by each month-end, and revenue collected per month</p>
+        </div>
+        <div class="chart-box chart-box-lg"><canvas id="progressChart" role="img" aria-label="Line chart of total members and monthly revenue over the last 12 months"></canvas></div>
+    </div>
+</div>
+{{ progress|json_script:"progress-data" }}

@@ -49,6 +49,8 @@
     {% endfor %}
 </div>
 
+{% include 'gym/partials/progress_chart.html' %}
+
 <!-- Quick access -->
 <h2 class="subsection-title mb-3">Quick Access</h2>
 <div class="row g-3 mb-4">
@@ -124,4 +126,12 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'gym/partials/chart_scripts.html' %}
+<script>
+    renderProgressChart(document.getElementById('progressChart'),
+                        JSON.parse(document.getElementById('progress-data').textContent));
+</script>
 {% endblock %}
