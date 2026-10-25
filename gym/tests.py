@@ -377,6 +377,22 @@ class ListFilterTests(LoggedInMixin, TestCase):
         self.assertEqual(list(self.list_page('entity=equipment&action=list&category=Cardio')), [cardio])
         self.assertEqual(len(self.list_page('entity=equipment&action=list')), 3)
 
+    def test_add_from_a_filter_preselects_the_subtype_and_returns_to_it(self):
+        page = self.client.get('/dashboard/?entity=equipment&action=list&category=Cardio').content.decode()
+        self.assertIn('?entity=equipment&action=create&category=Cardio"', page)
+        self.assertIn('Add Equipment (Cardio)', page)
+        form = self.client.get('/dashboard/?entity=equipment&action=create&category=Cardio').context['form']
+        self.assertEqual(form['category'].value(), 'Cardio')
+        response = self.client.post('/dashboard/?entity=equipment&action=create&category=Cardio', {
+            'name': 'Rowing Machine', 'category': 'Cardio', 'branch': self.branch.pk,
+            'max_speed': '10', 'incline_levels': 0})
+        self.assertRedirects(response, '/dashboard/?entity=equipment&action=list&category=Cardio')
+        # One equipment row (shown under All and under Cardio) plus its one cardio row
+        self.assertEqual(Equipment.objects.filter(name='Rowing Machine').count(), 1)
+        self.assertEqual(CardioEquipment.objects.count(), 1)
+        page = self.client.get('/dashboard/?entity=member&action=list&tier=both').content.decode()
+        self.assertIn('action=create&tier=both&amp;is_standard=on&amp;is_premium=on"', page)
+
     def test_payment_mode_filter(self):
         card = Payment.objects.create(member=self.member, amount=1500, pay_date=date(2026, 2, 1), mode='Card')
         Payment.objects.create(member=self.member, amount=1500, pay_date=date(2026, 3, 1), mode='Cash')

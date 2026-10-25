@@ -139,6 +139,9 @@ ENTITY_CONFIG = {
                         ('premium', 'Premium', Q(premium_profile__isnull=False)),
                         ('both', 'Both', Q(standard_profile__isnull=False, premium_profile__isnull=False)),
                         ('none', 'No tier', Q(standard_profile__isnull=True, premium_profile__isnull=True))],
+            # tier is not a form field: these tick the matching checkboxes on the Member form
+            'create_with': {'standard': 'is_standard=on', 'premium': 'is_premium=on',
+                            'both': 'is_standard=on&is_premium=on'},
         },
     },
     'standard_member': {
@@ -367,11 +370,28 @@ def apply_list_filter(config, queryset, request):
         all=Count('pk'), **{value: Count('pk', filter=q) for value, _, q in spec['options']})
     values = [value for value, _, _ in spec['options']]
     buttons = [{'value': '', 'label': 'All', 'count': counts['all'], 'active': selected not in values}]
+    result = {'param': spec['param'], 'caption': spec['caption'], 'buttons': buttons}
     for value, label, q in spec['options']:
         buttons.append({'value': value, 'label': label, 'count': counts[value], 'active': selected == value})
         if selected == value:
             queryset = queryset.filter(q)
-    return queryset, {'param': spec['param'], 'caption': spec['caption'], 'buttons': buttons}
+            # The filter is only a view of the one superclass table, so "Add" opens the same form
+            # with this subtype pre-selected and returns to this filter afterwards.
+            extra = spec.get('create_with', {}).get(value)
+            result['add_label'] = label
+            result['add_query'] = f"{spec['param']}={value}" + (f'&{extra}' if extra else '')
+    return queryset, result
+
+
+def list_url(request, entity_key, config):
+    """The list page to return to, keeping a subtype filter (e.g. ?category=Cardio) if one was active."""
+    url = f'{request.path}?entity={entity_key}&action=list'
+    spec = config.get('filter')
+    if spec:
+        selected = request.GET.get(spec['param'])
+        if selected in [value for value, _, _ in spec['options']]:
+            url += f"&{spec['param']}={selected}"
+    return url
 
 
 def protected_message(obj, error):
@@ -439,6 +459,7 @@ def dashboard(request):
         'form': None,
         'object_list': None,
         'error_message': None,
+        'list_url': list_url(request, entity_key, config),
     }
 
     if action == 'list':
@@ -451,7 +472,7 @@ def dashboard(request):
                 try:
                     form.save()
                     messages.success(request, f'{config["display_name"]} created successfully.')
-                    return redirect(f'{request.path}?entity={entity_key}&action=list')
+                    return redirect(list_url(request, entity_key, config))
                 except Exception as e:
                     messages.error(request, f'Error creating record: {str(e)}')
             context['form'] = form

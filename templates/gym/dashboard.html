@@ -27,12 +27,12 @@
                             <i class="bi bi-info-circle"></i><span>{{ config.create_hint }}</span><i class="bi bi-arrow-right"></i>
                         </a>
                     {% else %}
-                        <a href="?entity={{ entity_key }}&action=create" class="btn btn-primary">
-                            <i class="bi bi-plus-lg me-1"></i>Add {{ config.singular }}
+                        <a href="?entity={{ entity_key }}&action=create{% if list_filter.add_query %}&{{ list_filter.add_query }}{% endif %}" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-1"></i>Add {{ config.singular }}{% if list_filter.add_label %} ({{ list_filter.add_label }}){% endif %}
                         </a>
                     {% endif %}
                 {% elif action in 'create edit' %}
-                    <a href="?entity={{ entity_key }}&action=list" class="btn btn-outline-secondary">
+                    <a href="{{ list_url }}" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left me-1"></i>Back to List
                     </a>
                 {% endif %}
@@ -117,8 +117,8 @@
                                 <i class="bi bi-inbox"></i>
                                 <h5>No records found</h5>
                                 {% if not config.managed_by %}
-                                <a href="?entity={{ entity_key }}&action=create" class="btn btn-primary mt-2">
-                                    <i class="bi bi-plus-lg me-1"></i>Add {{ config.singular }}
+                                <a href="?entity={{ entity_key }}&action=create{% if list_filter.add_query %}&{{ list_filter.add_query }}{% endif %}" class="btn btn-primary mt-2">
+                                    <i class="bi bi-plus-lg me-1"></i>Add {{ config.singular }}{% if list_filter.add_label %} ({{ list_filter.add_label }}){% endif %}
                                 </a>
                                 {% endif %}
                             </div>
@@ -175,7 +175,7 @@
                             </div>
 
                             <div class="d-flex justify-content-end gap-2 mt-4">
-                                <a href="?entity={{ entity_key }}&action=list" class="btn btn-outline-secondary">
+                                <a href="{{ list_url }}" class="btn btn-outline-secondary">
                                     <i class="bi bi-x-lg me-1"></i>Cancel
                                 </a>
                                 <button type="submit" class="btn btn-primary">
@@ -213,7 +213,7 @@
                                 <i class="bi bi-trash me-1"></i>Yes, Delete
                             </button>
                         </form>
-                        <a href="?entity={{ entity_key }}&action=list" class="btn btn-outline-secondary ms-2">
+                        <a href="{{ list_url }}" class="btn btn-outline-secondary ms-2">
                             <i class="bi bi-x-lg me-1"></i>Cancel
                         </a>
                     </div>
